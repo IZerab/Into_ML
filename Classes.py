@@ -9,6 +9,13 @@ from numpy.linalg import norm
 import matplotlib.pyplot as plt
 from Functions import mat_mul
 from Functions import mat_reader
+from Functions import mean
+from Functions import median
+from Functions import quantiles
+from Functions import cus_max
+from Functions import cus_min
+from Functions import std
+
 
 # DAO
 class DAO:
@@ -37,14 +44,11 @@ class DAO:
         if not iftype == oftype:
             raise Exception("The input and output files are not of the same type!")
 
-
-
         if path.exists(ifname):
-                self.ifname = ifname
+            self.ifname = ifname
         else:
             raise Exception("Input path do not exist. Please insert the paths again")
         self.ofname = ofname
-
 
         for i in range(len(types)):
             if types[i] == ".csv":
@@ -88,13 +92,11 @@ class DAO:
         :param data_to_store: data to store
         :return: a boolean value to confirm the operation
         """
-        print(data_to_store)
         if isinstance(data_to_store, list):
             data_to_store = np.concatenate(data_to_store)
         if isinstance(data_to_store, str):
             data_to_store = [data_to_store]
         data_to_store = pd.DataFrame(data_to_store)
-        print(data_to_store)
         if self.oftype == ".csv":
             data_to_store.to_csv(self.ofname, header=None, index=None)
             return True
@@ -103,17 +105,20 @@ class DAO:
             return True
         return False
 
+
 # Abstract class
 class SubTaskABC(ABC):
     @abstractmethod
     def process(self):
         pass
 
+
 # Now I create the concrete class inheriting from the abstract class
 class SubTask13(SubTaskABC):
     """
     Class with a DAO included. It inherits from the abstract subclass SubTaskABC.
     """
+
     def __init__(self, dao):
         """
         :param dao: DAO object that must be initialised before passing
@@ -136,10 +141,9 @@ class SubTask13(SubTaskABC):
             else:
                 odd.append(data[i])
         even = even[::-1]
-        result = ''.join(odd+even)
+        result = ''.join(odd + even)
         if not self.my_dao.store(result):
             raise Exception("The data were not stored correctly!")
-
 
 
 class SubTask21(SubTaskABC):
@@ -163,8 +167,8 @@ class SubTask21(SubTaskABC):
         # I import the matrices as a whole
         matrices = self.my_dao.load()
         matrices = mat_reader(matrices, 3)
-        print(type(matrices))
-        print(matrices)
+
+        # CUSTOM
         # I set the runtime to 0 to take the temporal intervals
         sum_runtime = 0
         for k in range(self.repetitions):
@@ -180,6 +184,7 @@ class SubTask21(SubTaskABC):
         # I average over 10^5 iterations
         avg_custom = sum_runtime / self.repetitions
 
+        # NUMPY
         sum_runtime = 0
         # I perform the same with the numpy native function
         for k in range(self.repetitions):
@@ -192,17 +197,143 @@ class SubTask21(SubTaskABC):
                 # the time elapsed is calculated through a difference
                 time_2 = timeit.default_timer() - time_1
                 sum_runtime += time_2
-
         # I average over 10^5 iterations
         avg_numpy = sum_runtime / self.repetitions
+
         print("Numpy: ", avg_numpy)
         print("Custom: ", avg_custom)
-        speedup = avg_custom/avg_numpy
+        speedup = avg_custom / avg_numpy
         print("The speedup obtained through the use of custom function of  is: ", speedup)
         # storing the results
         self.my_dao.store([C])
         with open('output21.csv', 'a') as file:
             np.savetxt(file, [speedup], fmt='%.3f')
+
+
+class SubTask22(SubTaskABC):
+    """
+    It inherits from the abstract subclass SubTaskABC. In the initialization it requires a DAO to be passed as
+    an argument.
+    """
+
+    def __init__(self, dao):
+        self.my_dao = dao
+        self.repetitions = 100000
+
+    def process(self):
+        """
+        Function that stores the matrices inside a local variable using the DAO, it multiplies the first two matrices
+        by using a custom matrix multiplication function and using numpy. It also measures the execution time of both
+        the techniques as an average over 10^5 iterations. Finally it save the result of the multiplication in the
+        memory disk where it also reports the runtime.
+        """
+        # I read the matrices (the file is in the same folder)
+        # I import the matrices as a whole
+        matrix = self.my_dao.load()
+        # dictionary where to have the results
+        results = {
+            "mean_pd": [],
+            "median_pd": [],
+            "std_pd": [],
+            "quantiles_pd": [],
+            "min_pd": [],
+            "max_pd": [],
+            "mean_cus": [],
+            "median_cus": [],
+            "std_cus": [],
+            "quantiles_cus": [],
+            "min_cus": [],
+            "max_cus": [],
+        }
+
+        # I separate the two columns
+        columns = []
+        columns.append(matrix.values[:, 0])
+        columns.append(matrix.values[:, 1])
+
+
+        # PANDAS
+        # I set the runtime to 0 to take the temporal intervals
+        sum_runtime = 0
+        # dictionary where to have the results
+        for k in range(len(columns)):
+            temp = pd.DataFrame(columns[k])
+            time_1 = timeit.default_timer()
+            results["mean_pd"].append(temp.mean())
+            results["median_pd"].append(temp.median())
+            results["std_pd"].append(temp.std())
+            # the quantile methods give an array as the output
+            results["quantiles_pd"].append(temp.quantile([0.25, 0.5, 0.75]))
+            results["min_pd"].append(temp.min())
+            results["max_pd"].append(temp.max())
+            time_2 = timeit.default_timer() - time_1
+            sum_runtime += time_2
+        # I average over 10^5 iterations
+        avg_pd_sep = sum_runtime / self.repetitions
+
+        # CUSTOM
+        sum_runtime = 0
+        # I perform the same with the numpy native function
+        for k in range(len(columns)):
+            time_1 = timeit.default_timer()
+            results["mean_cus"].append(mean(columns[k]))
+            results["median_cus"].append(median(columns[k]))
+            results["std_cus"].append(columns[k].std())
+            # the quantile methods give an array as the output
+            results["quantiles_cus"].append(quantiles(columns[k]))
+            results["min_cus"].append(min(columns[k]))
+            results["max_cus"].append(max(columns[k]))
+            time_2 = timeit.default_timer() - time_1
+            sum_runtime += time_2
+        # I average over 10^5 iterations
+        avg_cus_sep = sum_runtime / self.repetitions
+
+        # I compute the statistics for the two columns togheter
+        # PANDAS
+        # I set the runtime to 0 to take the temporal intervals
+        sum_runtime = 0
+        # Operations
+        time_1 = timeit.default_timer()
+        results["mean_pd"].append(matrix.mean())
+        results["median_pd"].append(matrix.median())
+        results["std_pd"].append(matrix.std())
+        # matrix output: index is q, the columns are the columns of matrix, and the values are the quantiles.
+        results["quantiles_pd"].append(matrix.quantile(q=[0.25, 0.5, 0.75]))
+        results["min_pd"].append(matrix.min())
+        results["max_pd"].append(matrix.max())
+        time_2 = timeit.default_timer() - time_1
+        sum_runtime += time_2
+        # I average over 10^5 iterations
+        avg_togheter_pd = sum_runtime / self.repetitions
+
+        # I create a single long list with the two matrices
+        matrix = [*matrix.values[:, 0], *matrix.values[:, 1]]
+        # CUSTOM
+        # I set the runtime to 0 to take the temporal intervals
+        sum_runtime = 0
+        # Operations
+        time_1 = timeit.default_timer()
+        results["mean_cus"].append(mean(matrix))
+        results["median_cus"].append(median(matrix))
+        results["std_cus"].append(std(matrix))
+        # matrix output: index is q, the columns are the columns of matrix, and the values are the quantiles.
+        results["quantiles_cus"].append(quantiles(matrix))
+        results["min_cus"].append(cus_min(matrix))
+        results["max_cus"].append(cus_max(matrix))
+        time_2 = timeit.default_timer() - time_1
+        sum_runtime += time_2
+        # I average over 10^5 iterations
+        avg_togheter_cus = sum_runtime / self.repetitions
+
+        speedups = []
+        speedups.append(avg_togheter_cus/avg_togheter_pd)
+        speedups.append(avg_cus_sep/avg_pd_sep)
+        # storing the results
+        results = pd.DataFrame(results, index=results.keys())
+        self.my_dao.store(results)
+        with open('output22.csv', 'a') as file:
+            np.savetxt(file, speedups, fmt='%.3f')
+
 
 class Lin_custom():
     """

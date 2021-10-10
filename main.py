@@ -18,6 +18,7 @@ from Classes import Lin_GD
 from Classes import DAO
 from Classes import SubTask13
 from Classes import SubTask21
+from Classes import SubTask22
 
 # random seed
 random.seed(10567)
@@ -43,6 +44,7 @@ sub13.process()
 
 
 # TASK 2
+# subtask 1
 # setting up the paths
 input_path = "input21.csv"
 output_path = "output21.csv"
@@ -52,8 +54,18 @@ dao = DAO(input_path,output_path, ".csv", ".csv")
 # initialize subtask22
 speed_test = SubTask21(dao)
 speed_test.process()
-exit()
 
+
+# subtask 2
+input_path = "input22.csv"
+output_path = "output22.csv"
+
+# initialize the DAO: see classes.py
+dao = DAO(input_path,output_path, ".csv", ".csv")
+# initialize subtask22
+stat_test = SubTask22(dao)
+stat_test.process()
+exit()
 
 
 # Third task:
