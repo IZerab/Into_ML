@@ -65,7 +65,7 @@ dao = DAO(input_path,output_path, ".csv", ".csv")
 # initialize subtask22
 stat_test = SubTask22(dao)
 stat_test.process()
-exit()
+
 
 
 # Third task:
@@ -84,6 +84,8 @@ lin_reg.fit(X=X_train, y=y_train)
 # prediction
 predictions = lin_reg.predict(X=X_test)
 print("The MSE of the lin. reg. is: ", mean_squared_error(y_true=y_test, y_pred=predictions))
+
+exit()
 
 # I train my alg. using my custom linear regressor
 my_lin = Lin_custom()

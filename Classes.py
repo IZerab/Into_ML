@@ -9,8 +9,8 @@ from numpy.linalg import norm
 import matplotlib.pyplot as plt
 from Functions import mat_mul
 from Functions import mat_reader
-from Functions import mean
-from Functions import median
+from Functions import cus_mean
+from Functions import cus_median
 from Functions import quantiles
 from Functions import cus_max
 from Functions import cus_min
@@ -92,11 +92,20 @@ class DAO:
         :param data_to_store: data to store
         :return: a boolean value to confirm the operation
         """
+        if isinstance(data_to_store, dict):
+            # I transpose for a better readability
+            data_to_store = pd.DataFrame.from_dict(data_to_store, orient='index')
+            if self.oftype == ".csv":
+                data_to_store.to_csv(self.ofname, header=None, float_format="%.2f")
+                return True
+            if self.oftype == ".txt":
+                data_to_store.to_csv(self.ofname, sep=" ", header=None, float_format="%.2f")
+                return True
         if isinstance(data_to_store, list):
             data_to_store = np.concatenate(data_to_store)
         if isinstance(data_to_store, str):
             data_to_store = [data_to_store]
-        data_to_store = pd.DataFrame(data_to_store)
+        data_to_store = pd.DataFrame(data_to_store, index=None)
         if self.oftype == ".csv":
             data_to_store.to_csv(self.ofname, header=None, index=None)
             return True
@@ -235,35 +244,38 @@ class SubTask22(SubTaskABC):
             "mean_pd": [],
             "median_pd": [],
             "std_pd": [],
-            "quantiles_pd": [],
+            "25_pd": [],
+            "5_pd": [],
+            "75_pd": [],
             "min_pd": [],
             "max_pd": [],
             "mean_cus": [],
             "median_cus": [],
             "std_cus": [],
-            "quantiles_cus": [],
+            "25_cus": [],
+            "5_cus": [],
+            "75_cus": [],
             "min_cus": [],
             "max_cus": [],
         }
 
         # I separate the two columns
-        columns = []
-        columns.append(matrix.values[:, 0])
-        columns.append(matrix.values[:, 1])
-
-
+        columns = [matrix.values[:, 0], matrix.values[:, 1]]
         # PANDAS
         # I set the runtime to 0 to take the temporal intervals
         sum_runtime = 0
         # dictionary where to have the results
         for k in range(len(columns)):
-            temp = pd.DataFrame(columns[k])
+            temp = pd.Series(columns[k])
             time_1 = timeit.default_timer()
             results["mean_pd"].append(temp.mean())
             results["median_pd"].append(temp.median())
             results["std_pd"].append(temp.std())
             # the quantile methods give an array as the output
-            results["quantiles_pd"].append(temp.quantile([0.25, 0.5, 0.75]))
+            temp2 = temp.quantile([.25, .5, .75]).values
+            results["25_pd"].append(temp2[0])
+            results["5_pd"].append(temp2[1])
+            results["75_pd"].append(temp2[2])
             results["min_pd"].append(temp.min())
             results["max_pd"].append(temp.max())
             time_2 = timeit.default_timer() - time_1
@@ -276,11 +288,14 @@ class SubTask22(SubTaskABC):
         # I perform the same with the numpy native function
         for k in range(len(columns)):
             time_1 = timeit.default_timer()
-            results["mean_cus"].append(mean(columns[k]))
-            results["median_cus"].append(median(columns[k]))
+            results["mean_cus"].append(cus_mean(columns[k]))
+            results["median_cus"].append(cus_median(columns[k]))
             results["std_cus"].append(columns[k].std())
             # the quantile methods give an array as the output
-            results["quantiles_cus"].append(quantiles(columns[k]))
+            temp2 = quantiles(columns[k])
+            results["25_cus"].append(temp2[0])
+            results["5_cus"].append(temp2[1])
+            results["75_cus"].append(temp2[2])
             results["min_cus"].append(min(columns[k]))
             results["max_cus"].append(max(columns[k]))
             time_2 = timeit.default_timer() - time_1
@@ -289,8 +304,32 @@ class SubTask22(SubTaskABC):
         avg_cus_sep = sum_runtime / self.repetitions
 
         # I compute the statistics for the two columns togheter
+        # I create a single long list with the two matrices
+        matrix = [*matrix.values[:, 0], *matrix.values[:, 1]]
+
+        # CUSTOM
+        # I set the runtime to 0 to take the temporal intervals
+        sum_runtime = 0
+        # Operations
+        time_1 = timeit.default_timer()
+        results["mean_cus"].append(cus_mean(matrix))
+        results["median_cus"].append(cus_median(matrix))
+        results["std_cus"].append(std(matrix))
+        # matrix output: index is q, the columns are the columns of matrix, and the values are the quantiles.
+        temp2 = quantiles(matrix)
+        results["25_cus"].append(temp2[0])
+        results["5_cus"].append(temp2[1])
+        results["75_cus"].append(temp2[2])
+        results["min_cus"].append(cus_min(matrix))
+        results["max_cus"].append(cus_max(matrix))
+        time_2 = timeit.default_timer() - time_1
+        sum_runtime += time_2
+        # I average over 10^5 iterations
+        avg_together_cus = sum_runtime / self.repetitions
+
         # PANDAS
         # I set the runtime to 0 to take the temporal intervals
+        matrix = pd.Series(matrix)
         sum_runtime = 0
         # Operations
         time_1 = timeit.default_timer()
@@ -298,38 +337,19 @@ class SubTask22(SubTaskABC):
         results["median_pd"].append(matrix.median())
         results["std_pd"].append(matrix.std())
         # matrix output: index is q, the columns are the columns of matrix, and the values are the quantiles.
-        results["quantiles_pd"].append(matrix.quantile(q=[0.25, 0.5, 0.75]))
+        temp2 = matrix.quantile([0.25, 0.5, 0.75]).values
+        results["25_pd"].append(temp2[0])
+        results["5_pd"].append(temp2[1])
+        results["75_pd"].append(temp2[2])
         results["min_pd"].append(matrix.min())
         results["max_pd"].append(matrix.max())
         time_2 = timeit.default_timer() - time_1
         sum_runtime += time_2
         # I average over 10^5 iterations
-        avg_togheter_pd = sum_runtime / self.repetitions
+        avg_together_pd = sum_runtime / self.repetitions
 
-        # I create a single long list with the two matrices
-        matrix = [*matrix.values[:, 0], *matrix.values[:, 1]]
-        # CUSTOM
-        # I set the runtime to 0 to take the temporal intervals
-        sum_runtime = 0
-        # Operations
-        time_1 = timeit.default_timer()
-        results["mean_cus"].append(mean(matrix))
-        results["median_cus"].append(median(matrix))
-        results["std_cus"].append(std(matrix))
-        # matrix output: index is q, the columns are the columns of matrix, and the values are the quantiles.
-        results["quantiles_cus"].append(quantiles(matrix))
-        results["min_cus"].append(cus_min(matrix))
-        results["max_cus"].append(cus_max(matrix))
-        time_2 = timeit.default_timer() - time_1
-        sum_runtime += time_2
-        # I average over 10^5 iterations
-        avg_togheter_cus = sum_runtime / self.repetitions
-
-        speedups = []
-        speedups.append(avg_togheter_cus/avg_togheter_pd)
-        speedups.append(avg_cus_sep/avg_pd_sep)
+        speedups = [avg_together_cus / avg_together_pd, avg_cus_sep / avg_pd_sep]
         # storing the results
-        results = pd.DataFrame(results, index=results.keys())
         self.my_dao.store(results)
         with open('output22.csv', 'a') as file:
             np.savetxt(file, speedups, fmt='%.3f')

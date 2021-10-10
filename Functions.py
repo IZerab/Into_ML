@@ -42,7 +42,7 @@ def mat_reader(data, dimension):
     return list_of_matrices
 
 
-def mean(array):
+def cus_mean(array):
     """
     It calculates the mean of the array
     :param array: list or pd.Series
@@ -53,7 +53,7 @@ def mean(array):
     return get_sum / n
 
 
-def median(array):
+def cus_median(array):
     """
     It calculates the median of the array
     :param array: list or pd.Series
@@ -65,10 +65,10 @@ def median(array):
     if n % 2 == 0:
         median_down = array[n // 2 - 1]
         median_up = array[n // 2]
-        median = (median_up + median_down) / 2
+        median_f = (median_up + median_down) / 2
     else:
-        median = array[n // 2]
-    return median
+        median_f = array[n // 2]
+    return median_f
 
 
 def std(array):
@@ -79,7 +79,7 @@ def std(array):
     """
     n = len(array)
     # mu is the mean
-    mu = mean(array)
+    mu = cus_mean(array)
     # square dev
     diff = [(x - mu) ** 2 for x in array]
     variance = sum(diff) / n
@@ -97,12 +97,12 @@ def quantiles(array):
     # I cast to int
     m = int(len(array)/2)
     # 0.25 quantile
-    Q_25 = median(array[:m])
+    quant_25 = cus_median(array[:m])
     # 0.5 quantile (median)
-    Q_5 = median(array)
+    quant_5 = cus_median(array)
     # 0.75 quantile
-    Q_75 = median(array[m:])
-    return [Q_25, Q_5, Q_75]
+    quant_75 = cus_median(array[m:])
+    return [quant_25, quant_5, quant_75]
 
 
 def cus_min(array):
