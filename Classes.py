@@ -364,7 +364,7 @@ class Lin_custom():
 
     def __init__(self):
         # parameter vector for the linear regression
-        self.w = pd.Series()
+        self.w = None
 
     def fit(self, X, y):
         """
@@ -391,7 +391,7 @@ class Lin_custom():
         # I multiply for Xt
         temp2 = np.dot(inverse, Xt)
         # I multiply for y
-        # This is the parameter we were looking for!! It is saved
+        # This is the parameter we were looking for!! It is saved inside the class
         self.w = np.dot(temp2, y)
 
     def predict(self, X):
@@ -415,7 +415,7 @@ class Lin_GD():
         # parameter vector for the linear regression
         self.w = pd.Series()
 
-    def fit(self, X, y):
+    def fit(self, X, y, adaptative):
         """
         Manually implementing the linear fit. We use the gradient descent to find it!
         The cost function of my choice is the MSE.
@@ -445,10 +445,10 @@ class Lin_GD():
         # for convenience I set the variable diff_w (lenght of the step) as 1
         len_step = 0.1
         # I also put a stopping condition iter > 1000000
-        max_iter = 100005
+        max_iter = 5005
         counter = 0
 
-        while len_step > precision and counter < max_iter:  # since we instantly get the minimum I do not include "len_step > precision and"
+        while len_step > precision and counter < max_iter:
             # I write the gradient of the MSE for a linear regression, I used matrix formalism
             distance = np.dot(X, w) - y
             distance = pd.Series(distance)
@@ -463,25 +463,52 @@ class Lin_GD():
             mse.append(mean_squared_error(y_pred, y))
             # I update the weight vector
             w = w_new
+            if not adaptative:
+                # this is a REALLY ROUGH condition, I first plotted the graph of mse vs iterations and got where the
+                # elbow of the function was and later I adjusted the learning rate for the iterations after it.
+                #  better solution is presented in subtask 3.5
+                if counter == 2000:
+                    l_rate = l_rate/counter*10
+            if adaptative:
+                # I choose to use the bold driver heuristic
+                C_acc = 1.15
+                C_dec = 0.65
+                # I avoid to adjust the index at the first iterations for convenience
+                if counter > 2:
+                    if mse[counter] > mse[counter-1]:
+                        l_rate = l_rate*C_dec
+                    else:
+                        l_rate = l_rate * C_acc
             counter = counter + 1
+
 
         # I save my result in my class
         self.w = w
         self.mse = mse
 
-    def plot_mse(self):
+    def plot_mse(self, adaptative):
         """
         Function that plots mse against the number of iteration.
-        :return:
+        :return: the plot
         """
-        # first I select only the required parameters (1+1000k where k belongs to (1:100))
+        # first I select only the required parameters (1+1000k where k belongs to (1:100) was too much!)
         supp = []
-        for k in range(100):
-            supp.append(self.mse[1 + 1000 * k])
-        x_plot = [1 + 1000 * k for k in range(100)]
-        plt.scatter(x_plot, supp)
-        plt.ylabel('MSE')
-        plt.xlabel('Number of iteration')
+        if not adaptative:
+            for k in range(20):
+                supp.append(self.mse[1 + 250 * k])
+            x_plot = [1 + 250 * k for k in range(20)]
+            plt.plot(x_plot, supp,'bo', linestyle='dashed')
+            plt.ylabel('MSE')
+            plt.xlabel('Number of iterations')
+            plt.show()
+        if adaptative:
+            for k in range(25):
+                supp.append(self.mse[1 + 45 * k])
+            x_plot = [1 + 45 * k for k in range(25)]
+            plt.plot(x_plot, supp,'bo', linestyle='dashed')
+            plt.ylabel('MSE')
+            plt.xlabel('Number of iterations')
+            plt.show()
 
     def predict(self, X):
         """
