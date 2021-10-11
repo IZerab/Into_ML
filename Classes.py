@@ -123,38 +123,6 @@ class SubTaskABC(ABC):
 
 
 # Now I create the concrete class inheriting from the abstract class
-class SubTask13(SubTaskABC):
-    """
-    Class with a DAO included. It inherits from the abstract subclass SubTaskABC.
-    """
-
-    def __init__(self, dao):
-        """
-        :param dao: DAO object that must be initialised before passing
-        """
-        self.my_dao = dao
-
-    def process(self):
-        """
-        Function that stores the data inside a local variable, it sort all even indexed chars in increasing
-        and odd indexed chars in decreasing order and finally save them in the memory disk.
-        """
-        data = self.my_dao.load()
-        data = data.to_numpy().item()
-        data = list(data)
-        even = []
-        odd = []
-        for i in range(len(data)):
-            if ((i % 2) == 0):
-                even.append(data[i])
-            else:
-                odd.append(data[i])
-        even = even[::-1]
-        result = ''.join(odd + even)
-        if not self.my_dao.store(result):
-            raise Exception("The data were not stored correctly!")
-
-
 class SubTask21(SubTaskABC):
     """
     It inherits from the abstract subclass SubTaskABC. In the initialization it requires a DAO to be passed as
@@ -355,6 +323,38 @@ class SubTask22(SubTaskABC):
             np.savetxt(file, speedups, fmt='%.3f')
 
 
+class SubTask13(SubTaskABC):
+    """
+    Class with a DAO included. It inherits from the abstract subclass SubTaskABC.
+    """
+
+    def __init__(self, dao):
+        """
+        :param dao: DAO object that must be initialised before passing
+        """
+        self.my_dao = dao
+
+    def process(self):
+        """
+        Function that stores the data inside a local variable, it sort all even indexed chars in increasing
+        and odd indexed chars in decreasing order and finally save them in the memory disk.
+        """
+        data = self.my_dao.load()
+        data = data.to_numpy().item()
+        data = list(data)
+        even = []
+        odd = []
+        for i in range(len(data)):
+            if ((i % 2) == 0):
+                even.append(data[i])
+            else:
+                odd.append(data[i])
+        even = even[::-1]
+        result = ''.join(odd + even)
+        if not self.my_dao.store(result):
+            raise Exception("The data were not stored correctly!")
+
+
 class Lin_custom():
     """
     This class is a custom lin regression class.
@@ -413,12 +413,17 @@ class Lin_GD():
 
     def __init__(self):
         # parameter vector for the linear regression
-        self.w = pd.Series()
+        self.w = []
+        self.mse = []
+        self.mse_test = []
 
-    def fit(self, X, y, adaptative):
+    def fit(self, X, y, X_test, y_test, adaptative):
         """
         Manually implementing the linear fit. We use the gradient descent to find it!
         The cost function of my choice is the MSE.
+        :param y_test: test target, it is needed to plot the mse descent on test
+        :param adaptative: control parameter, Boolean, to check if to use the updated learning rate
+        :param X_test: test dataframe, it is needed to plot the mse descent on test
         :param X: X input matrix as pandas DF
         :param y: y target vector as pandas Series
         :return: nothing, it saves W in the class
@@ -438,6 +443,7 @@ class Lin_GD():
         w = pd.Series(w)
         # the cost function that I choose is the MSE, I store the results to create a plot
         mse = []
+        mse_test = []
         # Learning rate of my choice
         l_rate = 0.0000001
         # I set a precision value to stop the algorithm
@@ -460,6 +466,9 @@ class Lin_GD():
             # I save the MSE in the mse list
             len_step = norm(w_new - w)
             y_pred = np.dot(X, w)
+            y_pred_test = np.dot(X_test, w)
+
+            mse_test.append(mean_squared_error(y_pred_test, y_test))
             mse.append(mean_squared_error(y_pred, y))
             # I update the weight vector
             w = w_new
@@ -471,8 +480,8 @@ class Lin_GD():
                     l_rate = l_rate/counter*10
             if adaptative:
                 # I choose to use the bold driver heuristic
-                C_acc = 1.15
-                C_dec = 0.65
+                C_acc = 1.05
+                C_dec = 0.8
                 # I avoid to adjust the index at the first iterations for convenience
                 if counter > 2:
                     if mse[counter] > mse[counter-1]:
@@ -480,11 +489,10 @@ class Lin_GD():
                     else:
                         l_rate = l_rate * C_acc
             counter = counter + 1
-
-
         # I save my result in my class
         self.w = w
         self.mse = mse
+        self.mse_test = mse_test
 
     def plot_mse(self, adaptative):
         """
@@ -493,12 +501,13 @@ class Lin_GD():
         """
         # first I select only the required parameters (1+1000k where k belongs to (1:100) was too much!)
         supp = []
+        # FOR THE TRAIN
         if not adaptative:
             for k in range(20):
                 supp.append(self.mse[1 + 250 * k])
             x_plot = [1 + 250 * k for k in range(20)]
             plt.plot(x_plot, supp,'bo', linestyle='dashed')
-            plt.ylabel('MSE')
+            plt.ylabel('MSE train')
             plt.xlabel('Number of iterations')
             plt.show()
         if adaptative:
@@ -506,7 +515,26 @@ class Lin_GD():
                 supp.append(self.mse[1 + 45 * k])
             x_plot = [1 + 45 * k for k in range(25)]
             plt.plot(x_plot, supp,'bo', linestyle='dashed')
-            plt.ylabel('MSE')
+            plt.ylabel('MSE train')
+            plt.xlabel('Number of iterations')
+            plt.show()
+
+        supp = []
+        # FOR THE TEST
+        if not adaptative:
+            for k in range(20):
+                supp.append(self.mse_test[1 + 250 * k])
+            x_plot = [1 + 250 * k for k in range(20)]
+            plt.plot(x_plot, supp,'bo', linestyle='dashed')
+            plt.ylabel('MSE test')
+            plt.xlabel('Number of iterations')
+            plt.show()
+        if adaptative:
+            for k in range(25):
+                supp.append(self.mse_test[1 + 45 * k])
+            x_plot = [1 + 45 * k for k in range(25)]
+            plt.plot(x_plot, supp,'bo', linestyle='dashed')
+            plt.ylabel('MSE test')
             plt.xlabel('Number of iterations')
             plt.show()
 
