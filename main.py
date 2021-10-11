@@ -3,7 +3,6 @@ import sys
 import pandas as pd
 import numpy as np
 import os
-import random
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
@@ -89,6 +88,9 @@ predictions_custom = my_lin.predict(X=X_test)
 predictions_custom_train = my_lin.predict(X=X_train)
 print("The MSE (TEST) of the CUSTOM lin. is: ", mean_squared_error(y_true=y_test, y_pred=predictions_custom))
 print("The MSE (TRAIN) of the CUSTOM lin. is: ", mean_squared_error(y_true=y_train, y_pred=predictions_custom_train))
+# I print the w vector
+print(my_lin.w)
+
 
 # Now I use a custom gradient descent linear regressor
 # scheduled learning rate
@@ -100,18 +102,19 @@ GD_lin.fit(X_train, y_train,X_test, y_test, adaptative=False)
 predictions_GD = GD_lin.predict(X_test)
 print("The non adaptive MSE of the GD lin. reg. is: ", mean_squared_error(y_true=y_test, y_pred=predictions_GD))
 # MSE descent on the X_test DF
+print("Custom GD printed")
 GD_lin.plot_mse(adaptative=False)
 
 
 # Bold driver adaptive learning rate
-# scheduled learning rate
-# TRAIN
 GD_lin = Lin_GD()
 # fit
 GD_lin.fit(X_train, y_train, X_test, y_test, adaptative=True)
 # prediction
 predictions_GD = GD_lin.predict(X_test)
 print("The adaptive MSE of the GD lin. reg. is: ", mean_squared_error(y_true=y_test, y_pred=predictions_GD))
+print("Custom GD printed")
+print("Custom GD printed BOLD DRIVER")
 GD_lin.plot_mse(adaptative=True)
 
 
@@ -125,11 +128,11 @@ X_train_scaled = pd.DataFrame(X_train_scaled, index=None)
 X_test_scaled = pd.DataFrame(X_test_scaled, index=None)
 
 # I perform the non adaptive GD on the newly scaled data
-# TRAIN
 GD_lin.fit(X_train_scaled, y_train, X_test, y_test, adaptative=False)
 # prediction
 predictions_GD_scaled = GD_lin.predict(X_test_scaled)
 print("The MSE of the GD lin. reg. is: ", mean_squared_error(y_true=y_test, y_pred=predictions_GD_scaled))
+print("Custom GD min max scaled printed")
 GD_lin.plot_mse(adaptative=False)
 
 # I perform the adaptive GD on the newly scaled data
@@ -137,6 +140,7 @@ GD_lin.fit(X_train_scaled, y_train,X_test, y_test, adaptative=True)
 # prediction
 predictions_GD_scaled = GD_lin.predict(X_test_scaled)
 print("The MSE of the GD lin. reg. is: ", mean_squared_error(y_true=y_test, y_pred=predictions_GD_scaled))
+print("Custom GD min max scaled adaptative printed")
 GD_lin.plot_mse(adaptative=True)
 
 # Now I want to use a polynomial

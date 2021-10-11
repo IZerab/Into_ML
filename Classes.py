@@ -450,7 +450,7 @@ class Lin_GD():
         precision = 0.0000000001  # this is not necessary since we instantly get the minimum
         # for convenience I set the variable diff_w (lenght of the step) as 1
         len_step = 0.1
-        # I also put a stopping condition iter > 1000000
+        # I also put a stopping condition iter > 5005
         max_iter = 5005
         counter = 0
 
@@ -521,6 +521,7 @@ class Lin_GD():
 
         supp = []
         # FOR THE TEST
+        supp = []
         if not adaptative:
             for k in range(20):
                 supp.append(self.mse_test[1 + 250 * k])
@@ -529,11 +530,12 @@ class Lin_GD():
             plt.ylabel('MSE test')
             plt.xlabel('Number of iterations')
             plt.show()
+        supp = []
         if adaptative:
-            for k in range(25):
-                supp.append(self.mse_test[1 + 45 * k])
-            x_plot = [1 + 45 * k for k in range(25)]
-            plt.plot(x_plot, supp,'bo', linestyle='dashed')
+            for k in range(20):
+                supp.append(self.mse_test[1 + 250 * k])
+            x_plot = [1 + 250 * k for k in range(20)]
+            plt.plot(x_plot, supp, 'bo', linestyle='dashed')
             plt.ylabel('MSE test')
             plt.xlabel('Number of iterations')
             plt.show()
