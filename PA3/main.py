@@ -1,6 +1,5 @@
 # this is the main of my project
 # Author: Lorenzo Beltrame - 23-11-2021
-
 # standard libraries
 import numpy as np
 import pandas as pd
@@ -15,7 +14,13 @@ from sklearn.datasets import load_breast_cancer
 
 # custom libraries
 from Functions import forward_F_S
+from Functions import backward_F_S
 from Functions import print_best_scores
+
+# fix the seed
+random.seed(40)
+
+
 # TASK 1
 
 # PREPROCESSING
@@ -40,10 +45,17 @@ X_test = pd.DataFrame(X_test, columns=feat_names)
 y_train = pd.Series(y_train)
 y_test = pd.Series(y_test)
 
-best_scores, s = forward_F_S(X_train, y_train)
+print("Forward Feature selection: ")
+best_scores, s_f = forward_F_S(X_train, y_train)
 # I print the names of the features, in the order they were selected
-print([s,best_scores])
+print([s_f,best_scores])
 # I plot the scores obtained during feat selection
 print_best_scores(best_scores)
-print_best_scores(best_scores, log=True)
 
+
+# subtask 2
+print("Backward Feature selection: ")
+best_scores, eliminated_feat, s_b = backward_F_S(X_train, y_train)
+print([eliminated_feat,best_scores])
+# I plot the scores obtained during feat selection
+print_best_scores(best_scores)
