@@ -6,14 +6,18 @@ import numpy as np
 import pandas as pd
 import sklearn as sk
 from sklearn.model_selection import cross_validate as CV
-
+import random
 from sklearn.svm import LinearSVC
 import matplotlib.pyplot as plt
 
 
-def forward_F_S(X_train, y_train):
+# set random seed
+random.seed(40)
+
+def forward_F_S(X_train, y_train, break_cond = False):
     """
     Function that performs a Greedy Forward feature selection wrt CV SVC. We are using default parameters!!
+    :param break_cond: if true, breaks if all the new subsets are worse than last one
     :param X_train: Design matrix passed as a pandas DF
     :param y_train: target feature
     :return: CV scores at each iteration, feature list (in order of selection)
@@ -35,7 +39,8 @@ def forward_F_S(X_train, y_train):
     while len(remaining_feat) > 0:
 
         # to have a reference
-        print("This is iteration {}".format(iteration + 1))
+        if iteration % 10 == 0:
+            print("This is iteration {}".format(iteration + 1))
 
         # initialize scores for this iteration
         scores = []
@@ -52,7 +57,7 @@ def forward_F_S(X_train, y_train):
             scores.append(np.mean(array_scores["test_score"]))
 
         # check if the new features would do better!
-        if all(i < best_scores[iteration] for i in scores):  # to check!!
+        if all(i < best_scores[iteration] for i in scores) and break_cond:
             break
         # append the best score given by the CV on the previous selecte set of features and the new one
         best_scores.append(max(scores))
@@ -71,6 +76,7 @@ def print_best_scores(best_scores, log=False):
     """
     This function prints the best_scores given by the feature selection wrt a cross validated SVC
     :param best_scores: results of the feature selection. If log=True, gives the log scale on y axis.
+    :param log : if true plots with a logaritmic scale on Y
     :return: graph best scores VS iterations
     """
     # support variable
@@ -89,12 +95,14 @@ def print_best_scores(best_scores, log=False):
     plt.show()
 
 
-def backward_F_S(X_train, y_train):
+def backward_F_S(X_train, y_train, break_cond=False):
     """
     Function that performs a Greedy backward feature selection wrt CV SVC. We are using default parameters!!
     :param X_train: Design matrix passed as a pandas DF
     :param y_train: target feature
-    :return: CV scores at each iteration, removed feature list (in order of selection), remaining feat
+    :param break_cond: if true, breaks if all the new subsets are worse than last one
+    :return: CV scores at each iteration, removed feature list (in order of selection), remaining feat (This last one
+                only if break_cond=True)
     """
     # check if the X input is a pandas DF
     if not isinstance(X_train, pd.DataFrame):
@@ -113,7 +121,8 @@ def backward_F_S(X_train, y_train):
     while len(s) > 0:
 
         # to have a reference
-        print("This is iteration {}".format(iteration + 1))
+        if iteration % 10 == 0:
+            print("This is iteration {}".format(iteration + 1))
 
         # initialize scores for this iteration
         scores = []
@@ -130,9 +139,9 @@ def backward_F_S(X_train, y_train):
             scores.append(np.mean(array_scores["test_score"]))
 
         # check if the new set without one feature would do better!
-        if all(i < best_scores[iteration] for i in scores):  # to check!!
+        if all(i < best_scores[iteration] for i in scores) and break_cond:  # to check!!
             break
-        # append the best score given by the CV on the previous selecte set of features and the new one
+        # append the best score given by the CV on the previous selected set of features and the new one
         best_scores.append(max(scores))
         # get its index
         index_max = max(range(len(scores)), key=scores.__getitem__)
@@ -142,4 +151,72 @@ def backward_F_S(X_train, y_train):
         eliminated_feat.append(new_worst_feat)
         iteration += 1
 
-    return best_scores, eliminated_feat, s
+    if break_cond:
+        return best_scores, eliminated_feat, s
+    else:
+        return best_scores, eliminated_feat
+
+
+def sparse_data_sample(X_train, X_test, y_train, y_test, sub_size_train, sub_size_test, do_it=True):
+    """
+    get a subsample otherwise the data are too big :(((
+    :param sub_size_train: size of the resulting sample for the train part
+    :param sub_size_test: size of the resulting sample for the test part
+    :type do_it: if True samples the data, if not does not (useful to see the different results when reviewing the code)
+    :return: X_train, X_test, y_train, y_test of the correct size
+    """
+    if do_it:
+        i_train = np.random.choice(np.arange(X_train.shape[0]), sub_size_train, replace=False)
+        i_test = np.random.choice(np.arange(X_test.shape[0]), sub_size_test, replace=False)
+
+        X_train = X_train[i_train]
+        X_test = X_test[i_test]
+        y_train = y_train[i_train]
+        y_test = y_test[i_test]
+
+        return X_train, X_test, y_train, y_test
+    else:
+        return X_train, X_test, y_train, y_test
+
+
+def get_param_grid(kernel):
+    """
+    This function gets as an argument a kernel and gives back the param grid to be used in grid search CV
+    :param kernel: name of the kernel ["linear", "poly", "rbf", "sigmoid"]
+    :return: the grid for that specific kernel
+    """
+
+    if not kernel in ["linear", "poly", "rbf", "sigmoid"]:
+        raise ValueError("Insert the keyword of a valid kernel!")
+
+    grid = []
+
+    if kernel == "linear":
+        # for the linear kernel coef0, degree and gamma are ignored params!!
+        grid = {"decision_function_shape": ["ovo", "ovr"]}
+
+    if kernel == "poly":
+        grid = {'coef0': [0, 0.6, 1, 2],
+                'degree': [2, 3, 4, 6],
+                'gamma': [0.1, 0.6, 1, 1.3, "scale", "auto"]}
+
+    if kernel == "rbf":
+        grid = {'gamma': [0.1, 0.6, 1, 1.6, 3, 5, "scale", "auto"]}
+
+    if kernel == "sigmoid":
+        grid = {'coef0': [0, 0.6, 1, 1.6, 2, 5, 10],
+                'gamma': [0.1, 0.6, 1, 1.6, 3, 5, "scale", "auto"]}
+
+    return grid
+
+
+def nice_kernel(xx, y):
+    """
+    Kernel to be used in the learning alg. Since we are using such an high dimensional data we do not want to compute
+    the gram Matrix (which is sooooo expensive)
+    :param x:  X in the standard kernel notation
+    :param y:  X' in the standard kernel notation
+    :return: the evaluated kernel function to be passed to the SVC
+    """
+    square = xx @ y.T
+    return square.multiply(square)
