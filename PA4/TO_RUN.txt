@@ -1,0 +1,5 @@
+# instructions to run the program
+
+download the data from here: https://grouplens.org/datasets/movielens/1m/
+
+Insert them in the same folder the main is and run the programme
