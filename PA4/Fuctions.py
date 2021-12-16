@@ -2,6 +2,7 @@
 # author: Lorenzo Beltrame
 
 import pandas as pd
+import re
 import numpy as np
 import csv
 
@@ -60,8 +61,11 @@ def remove_users(df, N):
 
     # group by the user feature (they have the same index)
     groups = df.groupby(by="UserID").count()[lambda x: x >= N]
+    # I remove the NaN created in the last passage
     groups.dropna(inplace=True)
+    # select only the chosen indexes
     df = df[df["UserID"].isin(groups.index)]
+
     temp2 = df.shape[0]
     print("The number of reviews dropped is: ", temp1 - temp2)
 
@@ -99,6 +103,53 @@ def binarize_rating(df):
     temp_df["Rating"] = temp_df["Rating"].apply(binarizer)
 
     return temp_df
+
+
+def remove_text_between_parentheses(text):
+    """
+    Removes the text between the parentheses.
+    Credits to Wiktor Stribiżew
+    url: https://stackoverflow.com/questions/37528373/how-to-remove-all-text-between-the-outer-parentheses-in-a-string
+    :param text: string where we want to eliminate the parentheses
+    :return: the string without the parentheses and the text between them
+    """
+    n = 1  # run at least once
+    while n:
+        # remove non-nested/flat balanced parts
+        text, n = re.subn(r'\([^()]*\)', '', text)
+    return text
+
+
+def find_text_between_parentheses(s):
+    """
+    Find the text between the parentheses "()" of the given input string.
+    :param s: input string
+    :return: the text between the parenthese
+    """
+    if not isinstance(s, str):
+        raise ValueError("The input is not a string!")
+
+    result = s[s.find("(") + 1:s.find(")")]
+
+    return result
+
+
+def add_year(df):
+    """
+    Function that extract the year from the tile and adds it as a new column value.
+    Works only for this program!!!!
+    :param df:Pandas dataframe containing the aggregated movie data
+    :return: the dataframe with a new year column and a new title column
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise ValueError("Value error: The input is not a pandas DF!")
+
+    # add the years to the DF
+    df["Year"] = df["Title"].apply(find_text_between_parentheses)
+    # delete the year between the parentheses
+    df["Title"] = df["Title"].apply(remove_text_between_parentheses)
+
+    return df
 
 
 def custom_train_test(df):
