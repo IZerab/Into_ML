@@ -2,6 +2,7 @@
 # this document contains a class that implements a custom Multi layered perceptron
 import numpy as np
 
+
 # Useful functions
 def relu(array):
     """
@@ -10,7 +11,7 @@ def relu(array):
     :return: array on which we computed the relu
     """
     array[array < 0] = 0
-
+    return array
 
 def cost_function(A, y_true):
     """
@@ -57,6 +58,9 @@ class my_MLP():
         self.Z = {}
         self.S = {}
 
+        # errors for the training
+        self.errors = []
+
         # initialize biases and weights
         self.weights = {}
         self.biases = {}
@@ -73,6 +77,47 @@ class my_MLP():
         for i in range(self.n_layers):
             # linear combination
             self.Z[i] = linear_composition(self.weights[i], X, self.biases[i])
-            self.S[i] = relu(Z1)
+            self.S[i] = relu(Z[i])
 
         return np.where(S2 >= 0.5, 1, 0)
+
+    def fit_forward(self, X, y, n_features=2, n_neurons=3, n_output=1, iter, eta=0.001):
+        """
+        Performs a forward propagation.
+        :param X: design matrix
+        :param y: target vector
+        :param n_features: number of features
+        :param n_neurons: number of neurons in each hidden layer
+        :param n_output: number of output neurons
+        :param iter: number of iterations of the alg
+        :param gamma: learning rate
+        :return: errors over iterations, a dictionary of the learned parameters
+        """
+        for _ in range(iter):
+            for i in range(self.n_layers):
+                self.Z[i] = linear_combinations(self.weights[i], X, self.biases[i])
+                self.S[i] = relu(self.Z[i])
+
+        # I compute the errors
+            self.errors = cost_function(S2, y)
+            errors.append(error)
+
+            ##~~ Backpropagation ~~##
+
+            # update output weights
+            delta2 = (S2 - y) * S2 * (1 - S2)
+            W2_gradients = S1.T @ delta2
+            param["W2"] = param["W2"] - W2_gradients * eta
+
+            # update output bias
+            param["b2"] = param["b2"] - np.sum(delta2, axis=0, keepdims=True) * eta
+
+            # update hidden weights
+            delta1 = (delta2 @ param["W2"].T) * S1 * (1 - S1)
+            W1_gradients = X.T @ delta1
+            param["W1"] = param["W1"] - W1_gradients * eta
+
+            # update hidden bias
+            param["b1"] = param["b1"] - np.sum(delta1, axis=0, keepdims=True) * eta
+
+        return errors, param
