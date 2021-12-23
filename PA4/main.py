@@ -23,8 +23,7 @@ from Fuctions import remove_users
 from Fuctions import custom_confusion_matrix
 from Fuctions import plot_confusion_matrix
 
-# lib from the community
-from stochastic_optimizers import AdamOptimizer
+
 
 
 # TASK 1.1
