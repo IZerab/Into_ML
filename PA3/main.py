@@ -1,28 +1,23 @@
 # this is the main of my project
 # Author: Lorenzo Beltrame - 23-11-2021
 # standard libraries
-import numpy as np
-import pandas as pd
-import sklearn as sk
 import random
 
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import train_test_split
-from sklearn.datasets import load_breast_cancer
+import pandas as pd
+from joblib import parallel_backend  # parallelize using CPU!!!!
 from sklearn.datasets import fetch_20newsgroups_vectorized
-from sklearn.svm import LinearSVC
-from sklearn.svm import SVC
-from sklearn.model_selection import GridSearchCV
+from sklearn.datasets import load_breast_cancer
 from sklearn.metrics import accuracy_score
-from joblib import parallel_backend                 # parallelize using CPU!!!!
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.svm import SVC
 
+from Functions import backward_F_S
 # custom libraries
 from Functions import forward_F_S
-from Functions import backward_F_S
+from Functions import nice_kernel
 from Functions import print_best_scores
 from Functions import sparse_data_sample
-from Functions import get_param_grid
-from Functions import nice_kernel
 
 # fix the seed
 random.seed(40)
@@ -63,16 +58,12 @@ print("Backward Feature selection: ")
 best_scores, eliminated_feat = backward_F_S(X_train, y_train, break_cond=False)
 # I print the eliminated features in the order they were eliminated
 print(eliminated_feat, "\n")
-# I plot the scores obtained during feat selection
+# I plot the scores obtained during feat elimination
 print_best_scores(best_scores)
 print("Features chosen in order by the backward FS: \n", eliminated_feat)
 
 # subtask 3
-#best 6 features by each argument
-print("Forward Feature selection: ", s_f[s_f[index] < 6])
-print("Backward Feature selection: ", eliminated_feat[eliminated_feat > len(feat_names) - 7])
-
-exit()
+# best 6 features by each argument, see the report!
 
 
 # TASK 2
@@ -95,10 +86,7 @@ X_test = test.data
 y_test = test.target
 
 # get a subsample of the data, since they are too big (set do_it to false to skip this)
-X_train, X_test, y_train, y_test = sparse_data_sample(X_train, X_test, y_train, y_test, 8000, 3000, do_it=True)
-
-
-"""
+X_train, X_test, y_train, y_test = sparse_data_sample(X_train, X_test, y_train, y_test, 2000, 1200, do_it=True)
 
 # Subtask 1
 
@@ -133,7 +121,6 @@ for ker in kernel_names:
         kernel_names[iter], score_train[iter], score_test[iter]))
     iter += 1
 
-
 # TUNE HYPERPARAMETERS SUPPORT VECTOR CLASSIFIERS
 
 best_score_train = []
@@ -147,7 +134,6 @@ iter = 0
 # as before, the next line is performed for parallelization
 
 for ker in kernel_names:
-
     # I initialize my learning alg
     my_svc = SVC(kernel=ker)
 
@@ -179,9 +165,6 @@ for ker in kernel_names:
     print("With the following hyperparameters: {} \n".format(best_hyperparameters[iter]))
     iter += 1
 
-
-"""
-
 # subtask 2
 
 # I initialize my learning alg
@@ -189,7 +172,6 @@ my_svc = SVC(kernel=nice_kernel)
 # The next line is to parallelize
 with parallel_backend('threading', n_jobs=-1):
     my_svc.fit(X_train, y_train)
-
 # predictions
 pred_train = my_svc.predict(X_train)
 pred_test = my_svc.predict(X_test)
@@ -201,14 +183,3 @@ nice_score_test = (accuracy_score(pred_test, y_test))
 # print the results
 print("Accuracies for the nice kernel:    TRAIN: {}    TEST: {} \n".format(
     nice_score_train, nice_score_test))
-
-
-
-
-
-
-
-
-
-
-

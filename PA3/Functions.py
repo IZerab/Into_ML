@@ -9,7 +9,7 @@ from sklearn.model_selection import cross_validate as CV
 import random
 from sklearn.svm import LinearSVC
 import matplotlib.pyplot as plt
-
+import scipy
 
 # set random seed
 random.seed(40)
@@ -22,7 +22,6 @@ def forward_F_S(X_train, y_train, break_cond = False):
     :param y_train: target feature
     :return: CV scores at each iteration, feature list (in order of selection)
     """
-
     # check if the X input is a pandas DF
     if not isinstance(X_train, pd.DataFrame):
         raise ValueError("Value error: The X input is not a pandas DF!")
@@ -111,6 +110,7 @@ def backward_F_S(X_train, y_train, break_cond=False):
     # features we are using in the next iterations
     features = X_train.columns.to_list()
     s = features
+    num_feat = len(features)
     best_scores = []
     # convenience variables
     eliminated_feat = []
@@ -118,18 +118,21 @@ def backward_F_S(X_train, y_train, break_cond=False):
     best_scores.append(0)
     iteration = 0
 
-    while len(s) > 0:
-
+    while iteration < num_feat:
         # to have a reference
-        if iteration % 10 == 0:
-            print("This is iteration {}".format(iteration + 1))
+        if iteration % 5 == 0:
+            print("This is iteration {}".format(iteration))
 
         # initialize scores for this iteration
         scores = []
         for i in range(len(s)):
-            # I can consider the difference between sets
-            temp_feat = s.copy()
-            temp_feat.pop(i)
+            # small condition to avoid error on last iteration
+            if iteration == num_feat - 1:
+                temp_feat = s.copy()
+            else:
+                # I can consider the difference between sets
+                temp_feat = s.copy()
+                temp_feat.pop(i)
             array_scores = CV(
                 estimator=LinearSVC(random_state=42),
                 X=X_train[temp_feat],
@@ -139,7 +142,7 @@ def backward_F_S(X_train, y_train, break_cond=False):
             scores.append(np.mean(array_scores["test_score"]))
 
         # check if the new set without one feature would do better!
-        if all(i < best_scores[iteration] for i in scores) and break_cond:  # to check!!
+        if all(i < best_scores[iteration] for i in scores) and break_cond:
             break
         # append the best score given by the CV on the previous selected set of features and the new one
         best_scores.append(max(scores))
@@ -210,13 +213,19 @@ def get_param_grid(kernel):
     return grid
 
 
-def nice_kernel(xx, y):
+def nice_kernel(x, y):
     """
-    Kernel to be used in the learning alg. Since we are using such an high dimensional data we do not want to compute
-    the gram Matrix (which is sooooo expensive)
-    :param x:  X in the standard kernel notation
-    :param y:  X' in the standard kernel notation
+    Kernel to be used in the learning alg. It has to be passed into the SVC's "kernel" parameter!!
+    I manually set a multiplicative hyper parameter that multiplies the tanget of the dot product between X and X'.
+    :param x:  the design matrix of what we want to predict
+    :param y:  the train design matrix that is passed to the SVC
     :return: the evaluated kernel function to be passed to the SVC
     """
-    square = xx @ y.T
-    return square.multiply(square)
+    # compute the dot product between X' and wic
+    result = x.dot(y.transpose())
+    result = result.tan()
+    # include a multiplicative hyper parameter (I did not call it in the arguments for convenience) I
+    C = 1.4
+    result = result.multiply(C)
+    # compute the hadamard product between the previous matrix and itself!!
+    return result
