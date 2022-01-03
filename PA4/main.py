@@ -1,31 +1,32 @@
 # This is the main of the project Programming assignment 4
 # author: Lorenzo Beltrame
 
+import time
+
+import h5py
 import matplotlib.pyplot as plt
 # lib
 import numpy as np
-import h5py
-from sklearn.svm import LinearSVC
-from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.svm import LinearSVC
 
+from Custom_MLP import my_MLP
 # custom lib
 from Fuctions import add_year
 from Fuctions import binarize_rating
 from Fuctions import create_dataframe
+from Fuctions import custom_confusion_matrix
 from Fuctions import custom_train_test
 from Fuctions import do_cv
 from Fuctions import import_movie_data
 from Fuctions import manual_precision_recall
-from Fuctions import remove_users
-from Fuctions import custom_confusion_matrix
 from Fuctions import plot_confusion_matrix
+from Fuctions import remove_users
 
-
-
-
+"""
 # TASK 1.1
 # import the data
 df_movies, df_ratings, df_users = import_movie_data()
@@ -81,14 +82,14 @@ X_test = test.drop(columns="Rating")
 # subtask 1.2
 
 # number of trials for C hyper parameter
-N = 2
+N = 7
 # create a log spaced array of 6 elements
 x = np.logspace(0.1, 7, N, endpoint=True) / 100
 # create the parameter grid
 param_grid_SVC = {"C": x}
 
 # I manually insert the values for the MLP classifier (NB: I do not want to have too many hidden layers)
-param_grid_MLP = {"hidden_layer_sizes": [(10, 20, 10, 20, 10), (20, 20, 20)]}
+param_grid_MLP = {"hidden_layer_sizes": [(20, 20), (10, 10)]}
 
 # cross validation hyperparameter selection
 # SVC
@@ -100,20 +101,30 @@ best_score_SVC, best_hyper_SVC, my_SVC = do_cv(
     cv=3
 )
 
+# see the performaces of the best model on the test set
+pred = my_SVC.predict(X_test)
+print("The accuracy score (SVC) on the test is: ", accuracy_score(pred, y_test))
+
 # MLP
 print("I tried the following number of")
-best_score_MLP, best_hyper_MLP, my_MLP = do_cv(
+best_score_MLP, best_hyper_MLP, best_MLP = do_cv(
     alg=MLPClassifier(),
     CV_parameters=param_grid_MLP,
     X_train=X_train,
     y_train=y_train,
     cv=3
 )
-exit()
+pred = best_MLP.predict(X_test)
+print("The accuracy score (MLP) on the test is: ", accuracy_score(pred, y_test))
+
+# baseline model: all rated 0
+base = np.zeros(len(y_test))
+print("The accuracy score with a predictor that predicts just 0 is: ", accuracy_score(base, y_test))
+
 # subtask 1.3
 # get the predicted probabilities, NB: gridsearch_CV enables the prediction of the probabilities!!
 y_prob_svc = my_SVC.predict(X_test)
-y_prob_MLP = my_MLP.predict(X_test)
+y_prob_MLP = best_MLP.predict(X_test)
 
 # use the custom plot precision recall curve
 precisions_svc, recalls_svc, AP_svc = manual_precision_recall(y_test, y_prob_svc)
@@ -133,8 +144,7 @@ ax.plot([0, 1], [baseline, baseline], label='Baseline of the model')
 ax.set_ylabel('Precision')
 ax.set_xlabel('Recall')
 ax.legend()
-plt.show(block=False)
-
+plt.show()
 
 # subtask 1.4
 # train test split
@@ -151,8 +161,8 @@ y_test = test["Rating"]
 X_train = train.drop(columns="Rating")
 X_test = test.drop(columns="Rating")
 
-# use a SVC
-multi_svc = SVC()
+# use a Linear SVC since a SVC takes too long
+multi_svc = LinearSVC()
 
 # train
 multi_svc.fit(X_train, y_train)
@@ -166,21 +176,22 @@ my_confusion, my_classes = custom_confusion_matrix(y_test, prediction_multi)
 # plot the confusion matrix
 plot_confusion_matrix(my_confusion, my_classes)
 
-
+"""
 # Task 2
 
 # subtask 1
-# import the data
-hf = h5py.File("regression.h5", "r")
-X_train = np.array(hf.get("x train"))
-y_train = np.array(hf.get("y train"))
-X_test = np.array(hf.get("x test"))
-y_test = np.array(hf.get("y test"))
+# read the data
+hf = h5py.File("regression.h5", 'r')
+X_train = np.array(hf.get("x_train"))
+y_train = np.array(hf.get("y_train"))
+X_test = np.array(hf.get("x_test"))
+y_test = np.array(hf.get("y_test"))
 hf.close()
+
 
 # fit the min max scaler
 # unite the dataset
-temp = np.concatenate((X_train,X_test), axis=0)
+temp = np.concatenate((X_train, X_test))
 my_scaler = MinMaxScaler()
 my_scaler.fit(temp)
 
@@ -197,19 +208,40 @@ num_inst_test = X_test.shape[0]
 print("The number of instances in the test dataset is {}".format(num_inst_test))
 
 # number of features
-num_feat_train = X_train.shape[1]
-print("The number of features in the training dataset is {}".format(num_feat_train))
-num_feat_test = X_test.shape[1]
-print("The number of features in the test dataset is {}".format(num_feat_test))
+num_feat = X_train.shape[1]
+print("The number of features in the training and in the test dataset is {}".format(num_feat))
 
 # list of targets
 # I use y_train since it is a bigger dataset!
 targets = np.unique(y_train)
-print("The targets are {}".format(targets))
 num_target = len(targets)
 print("The number of targets is {}".format(num_target))
 
-
 # subtask 2.2
+# initialize again my custom svc
+# set the shape of the MLP we want two hidden layers with 10 neurons each
+MLP_shape = [X_train.shape[1], 10, 10, 1]
+my_MLP = my_MLP(
+    shape_net=MLP_shape,
+    epsilon=1e-06)
 
+# test the forward propagation method
+W_0 = my_MLP.weights
+B_0 = my_MLP.biases
+y_pred = my_MLP.predict(X_train, W_0, B_0)
+print('Forward propagation output:', y_pred.shape)
 
+# subtask 2.3
+# start the training
+start_time = time.time()
+train_cost, test_cost, iterations = my_MLP.train(X_train, y_train, X_test, y_test)
+end_time = time.time()
+print("The execution time elapsed in the training is: ", end_time - start_time)
+
+# plot the cost functions
+plt.plot(iterations, train_cost, label='Training set')
+plt.plot(iterations, test_cost, label='Testing set')
+plt.xlabel("Iteration")
+plt.ylabel("MSE")
+plt.legend()
+plt.show()

@@ -8,9 +8,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from joblib import parallel_backend
+from scipy.special import expit
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import GridSearchCV
-from scipy.special import expit
 
 
 def import_movie_data():
@@ -222,6 +222,9 @@ def precision_recall(y_test, y_pred):
     :param y_pred: prediction given by the design matrix of the test dataset
     :return: precision [0,1], recall [0,1]
     """
+    # save for convenience a local copy
+    y_test_local = y_test
+    y_pred_local = y_pred
     # Initialize the counters
     # true positive
     TP = 0
@@ -231,13 +234,13 @@ def precision_recall(y_test, y_pred):
     FN = 0
 
     # Compute manually the confusion matrix
-    for i in y_test.index:
+    for i in range(len(y_test_local)):
         # note that we work with manually binarized data given by thresholding!
-        if y_test[i] == y_pred[i] == 1:
+        if y_test_local[i] == y_pred_local[i] == 1:
             TP += 1
-        if y_pred[i] == 1 and y_test[i] != y_pred[i]:
+        if y_pred_local[i] == 1 and y_test_local[i] != y_pred_local[i]:
             FP += 1
-        if y_pred[i] == 0 and y_test[i] != y_pred[i]:
+        if y_pred_local[i] == 0 and y_test_local[i] != y_pred_local[i]:
             FN += 1
 
     # Calculate precision
@@ -351,16 +354,15 @@ def plot_confusion_matrix(confusion, classes):
     plt.xticks(tick_marks, classes, rotation=45)
     plt.yticks(tick_marks, classes)
 
-    fmt = 'd'
     thresh = confusion.max() / 2.
     for i, j in itertools.product(range(confusion.shape[0]), range(confusion.shape[1])):
-        plt.text(j, i, format(confusion[i, j], fmt),
+        plt.text(j, i, format(confusion[i, j]),
                  horizontalalignment="center",
                  color="white" if confusion[i, j] > thresh else "black")
 
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
-    plt.show(block=False)
+    plt.show()
 
 
 def custom_MLP():

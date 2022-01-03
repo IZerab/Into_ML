@@ -2,4 +2,6 @@
 
 download the data from here: https://grouplens.org/datasets/movielens/1m/
 
+Run the main, everything should be fine.
+
 Insert them in the same folder the main is and run the programme
