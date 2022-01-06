@@ -119,13 +119,13 @@ class SGDOptimizer(BaseOptimizer):
     """
 
     def __init__(
-        self,
-        params,
-        learning_rate_init=0.1,
-        lr_schedule="constant",
-        momentum=0.9,
-        nesterov=True,
-        power_t=0.5,
+            self,
+            params,
+            learning_rate_init=0.1,
+            lr_schedule="constant",
+            momentum=0.9,
+            nesterov=True,
+            power_t=0.5,
     ):
         super().__init__(learning_rate_init)
 
@@ -147,7 +147,7 @@ class SGDOptimizer(BaseOptimizer):
         """
         if self.lr_schedule == "invscaling":
             self.learning_rate = (
-                float(self.learning_rate_init) / (time_step + 1) ** self.power_t
+                    float(self.learning_rate_init) / (time_step + 1) ** self.power_t
             )
 
     def trigger_stopping(self, msg, verbose):
@@ -243,7 +243,7 @@ class AdamOptimizer(BaseOptimizer):
     """
 
     def __init__(
-        self, params, learning_rate_init=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-8
+            self, params, learning_rate_init=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-8
     ):
         super().__init__(learning_rate_init)
 
@@ -255,7 +255,8 @@ class AdamOptimizer(BaseOptimizer):
         self.vs = [np.zeros_like(param) for param in params]
 
     def _get_updates(self, grads):
-        """Get the values used to update params with given gradients
+        """
+        Get the values used to update params with given gradients
 
         Parameters
         ----------
@@ -278,9 +279,9 @@ class AdamOptimizer(BaseOptimizer):
             for v, grad in zip(self.vs, grads)
         ]
         self.learning_rate = (
-            self.learning_rate_init
-            * np.sqrt(1 - self.beta_2 ** self.t)
-            / (1 - self.beta_1 ** self.t)
+                self.learning_rate_init
+                * np.sqrt(1 - self.beta_2 ** self.t)
+                / (1 - self.beta_1 ** self.t)
         )
         updates = [
             -self.learning_rate * m / (np.sqrt(v) + self.epsilon)

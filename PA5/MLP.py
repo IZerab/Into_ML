@@ -103,8 +103,9 @@ class MyMLP:
         self.cache_post_activations = []
         self.cache_derivatives = []
 
-    def fit(self, x, y, x_test=None, y_test=None, bs=10, n_epochs=300, method='backprop'):
-        """Optimize the parameters of the neural network to minimze the mse on the
+    def fit(self, x, y, x_test=None, y_test=None, bs=10, n_epochs=500, method='backprop'):
+        """
+        Optimize the parameters of the neural network to minimze the mse on the
         training data.
 
         Parameters
@@ -149,7 +150,12 @@ class MyMLP:
             self.biases.append(b)
 
             # initialize optimizer
-            self._optimizer = AdamOptimizer(self.weights + self.biases, self.lr, 0.9, 0.999, 1e-08)
+            self._optimizer = AdamOptimizer(
+                params=self.weights + self.biases,
+                learning_rate_init=self.lr,
+                beta_1=0.9,
+                beta_2=0.999,
+                epsilon=1e-08)
 
         # optimize weights and biases
         mse_train = []
@@ -171,18 +177,23 @@ class MyMLP:
                 # compute gradients
                 gradients, gradients_biases = self.grad(x[perm], y[perm], method=method)
 
+
                 # weight decay
                 for w, g in zip(self.weights, gradients):
                     g += self.lr * self.alpha * 2 * w
 
                 # update parameters
-                self._optimizer.update_params(gradients + gradients_biases)
+                updates = self._optimizer._get_updates(gradients + gradients_biases)
 
+                # get the updates
+                for j in range(len(updates)):
+                    self.weights[j] = updates[j]
+                    self.biases = updates[j]
                 # move to next batch of data
                 sidx += bs
-                if sidx >= x.shape[0]:
-                    sidx = 0
-                    break
+                #if sidx >= x.shape[0]:
+                #    sidx = 0
+                #    break
 
             # record training/test performance for plotting
             mse_train.append(self.mean_squared_error(x_train, y_train))
@@ -262,8 +273,10 @@ class MyMLP:
         back_gradients = []
         # create the backpropagation's gradient
         for i in range(len(self.cache_post_activations)):
-            back_gradients[i] = errors[i] @ self.cache_post_activations[i - 1]
-
+            if i != 0:
+                back_gradients[i] = errors[i] @ self.cache_post_activations[i - 1]
+            else:
+                back_gradients = errors[i] @ x
             # save the result in the corresponding variable (the bias of the NN is the last element!)
             if i == len(self.cache_post_activations):
                 grad_biases.append(back_gradients[i])
