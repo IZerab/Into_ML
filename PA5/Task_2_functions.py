@@ -19,7 +19,7 @@ def initialize_data():
     df_obj = fetch_lfw_people(data_home='./Dataset_2/', min_faces_per_person=30, resize=0.5)
 
     # get the dataframe
-    df = pd.DataFrame(df_obj.data)
+    df = pd.DataFrame(df_obj.data).copy()
     target = pd.Series(df_obj.target)
 
     # explore the data
@@ -34,6 +34,17 @@ def initialize_data():
         test_size=0.3)
 
     return X_train, X_test, y_train, y_test, df
+
+
+def centre_data(X):
+    """
+    Centers the data st the columns have average 0
+    :param X: design matrix
+    :return: centered data
+    """
+    X_mean = X.mean(axis=0)
+    X -= X_mean
+    return X
 
 
 def explore_data(dataset_object):
@@ -83,17 +94,21 @@ def plot_image(image, subplot=False, shape=None):
     if not subplot:
         plt.figure(figsize=(3, 4))
 
-    plt.imshow(np.real(image).reshape(shape), cmap=plt.cm.binary)
+    plt.imshow(np.real(image).reshape(shape))
     plt.xticks(())
     plt.yticks(())
 
 
-def plot_gallery(images, num=None):
+def plot_gallery(images, num=None, shape=None):
     """
     Function that plots all the the images passed to it into the notebook.
+    :param shape: shape of the image, [62, 47] is the shape of this project!
     :param num: Number of images to plot, if not specified the lenght of the list is used.
     :param images: list of images to plot
     """
+    # plot images of 10 different people
+    plt.figure(figsize=(10, 12))
+
     if num is None:
         K = len(images)
     else:
@@ -102,7 +117,7 @@ def plot_gallery(images, num=None):
     position = 0
     for i in range(K):
         plt.subplot(1, K, position + 1)
-        plot_image(images[i], subplot=True)
+        plot_image(images[i], subplot=True, shape=shape)
         position += 1
     plt.tight_layout()
     plt.show()
@@ -140,8 +155,7 @@ class my_custom_pca:
             raise TypeError("Insert a pandas DataFrame")
 
         # center my data
-        X_mean = X.mean(axis=0)
-        X -= X_mean
+        X = centre_data(X)
 
         # Compute the covariance matrix
         S = X.cov()
@@ -158,7 +172,7 @@ class my_custom_pca:
         self.principal_components = eigen_vectors.T
 
         # choose K eigenvectors (transpose is necessary for conventional issues!)
-        self.W = eigen_vectors[:, :K].T
+        self.W = eigen_vectors[:, :K]
 
     def transform(self, X):
         """
@@ -171,7 +185,7 @@ class my_custom_pca:
         X -= X_mean
 
         # due to numerical errors we might have imaginary parts!!
-        self.projections = np.real(self.W @ X.T)
+        self.projections = np.real(self.W.T @ X.T)
         return self.projections
 
     def reconstruct_images_vectors(self):
@@ -182,6 +196,37 @@ class my_custom_pca:
         if self.projections is None:
             raise ValueError("Train the PCA first!")
 
-        self.reconstructions = self.projections.T @ self.W
+        self.reconstructions = self.projections.T @ self.W.T
 
         return self.reconstructions
+
+
+def encode(X, mlp):
+    """
+    This function is not working for general MLPs,
+    the MLP must have the layer-configuration as
+    stated in the exercise description.
+    X must have the shape
+    n_images x (witdh in pixels * height in pixels)
+    """
+
+    z = X
+    for i in range(len(mlp.coefs_) // 2):
+        z = z @ mlp.coefs_[i] + mlp.intercepts_[i]
+    z = np.maximum(z, 0)
+    return z
+
+
+def decode(Z, mlp):
+    """
+    This function is not working for general MLPs,
+    the MLP must have the layer-configuration as
+    stated in the exercise description.
+    Z must have the shape n_images x d
+    """
+
+    z = Z
+    for i in range(len(mlp.coefs_) // 2, len(mlp.coefs_)):
+        z = z @ mlp.coefs_[i] + mlp.intercepts_[i]
+    #z = np.maximum(z, 0)
+    return z
