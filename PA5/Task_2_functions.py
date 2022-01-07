@@ -3,6 +3,7 @@
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 from sklearn.datasets import fetch_lfw_people
 from sklearn.model_selection import train_test_split
 
@@ -11,7 +12,8 @@ def initialize_data():
     """
     This function downloads the dataset Labeled Faces in the Wild if it has not already been downloaded.
     It returns the dataset already initialised as asked in the assignment.
-    :return: the initialized Labeled Faces in the Wild dataset already splitted into train/test and stratified
+    :return: the initialized Labeled Faces in the Wild dataset already splitted into train/test and stratified and the
+                design matrix as a whole (for convenience)
     """
     # load the scikit dataset object (a cache is set!)
     df_obj = fetch_lfw_people(data_home='./Dataset_2/', min_faces_per_person=30, resize=0.5)
@@ -31,7 +33,7 @@ def initialize_data():
         random_state=42,
         test_size=0.3)
 
-    return X_train, X_test, y_train, y_test
+    return X_train, X_test, y_train, y_test, df
 
 
 def explore_data(dataset_object):
@@ -60,39 +62,126 @@ def explore_data(dataset_object):
     plt.subplots_adjust(0.6, 0.5, 1.5, 1.5)
 
     # convenience variable
-    position = 0
-    for i in index_unique:
-        plt.subplot(1, 10, position + 1)
-        plot_image(dataset_object.images[i], subplot=True)
-        position += 1
-    plt.tight_layout()
+    print("I visualize ten different pictures presented in the dataset:")
+    plot_gallery(dataset_object.images, 10)
 
     print("\nThe first ten pictures are associated with:")
     for i in index_unique:
         print(dataset_object.target[i])
 
 
-def plot_image(image, subplot=False):
+def plot_image(image, subplot=False, shape=None):
     """
     Function that plots the image passed into the notebook.
+    :param shape: shape of the image, [62, 47] is the shape of this project!
     :param subplot: if true it need a subplot structure to print!
     :param image: image to plot
     """
+    if shape is None:
+        shape = [62, 47]
+
     if not subplot:
         plt.figure(figsize=(3, 4))
 
-    plt.imshow(image, cmap=plt.cm.gray)
+    plt.imshow(np.real(image).reshape(shape), cmap=plt.cm.binary)
     plt.xticks(())
     plt.yticks(())
 
 
-class my_pca:
+def plot_gallery(images, num=None):
     """
-    This function implements principal component analysis.
-    It includes 4 methods.
+    Function that plots all the the images passed to it into the notebook.
+    :param num: Number of images to plot, if not specified the lenght of the list is used.
+    :param images: list of images to plot
     """
+    if num is None:
+        K = len(images)
+    else:
+        K = num
+    # convenience variable
+    position = 0
+    for i in range(K):
+        plt.subplot(1, K, position + 1)
+        plot_image(images[i], subplot=True)
+        position += 1
+    plt.tight_layout()
+    plt.show()
+
+
+class my_custom_pca:
+    """
+    This function implements principal component analysis for images!
+    It includes 3 features:
+    □ Compute the Principal components
+    □ Project given data onto the principal components
+    □ Reconstruct images from the projection onto the principal components
+    """
+
     def __init__(self):
         """
         Initialize the class and create useful variables to store the information.
         """
-        self.
+        self.principal_components = None
+        # Linear transformation weight
+        self.W = None
+        # projections of the principal components
+        self.projections = None
+        # reconstructions
+        self.reconstructions = None
+
+    def fit(self, X, K):
+        """
+        Performs the fit to compute the principal components.
+        The principal components are stored inside the class.
+        :param X: design matrix used to train, pandas df
+        :param K: number of eigenvectors to choose
+        """
+        if not isinstance(X, pd.DataFrame):
+            raise TypeError("Insert a pandas DataFrame")
+
+        # center my data
+        X_mean = X.mean(axis=0)
+        X -= X_mean
+
+        # Compute the covariance matrix
+        S = X.cov()
+
+        # Compute eigenvectors and eigenvalues of the covariance matrix
+        eigen_values, eigen_vectors = np.linalg.eig(S)
+
+        # Sort the eigenvalues from highest to lowest
+        sort_perm = eigen_values.argsort()[::-1]
+        eigen_values.sort()
+        eigen_vectors = eigen_vectors[:, sort_perm]
+
+        # save the computed principal components
+        self.principal_components = eigen_vectors.T
+
+        # choose K eigenvectors (transpose is necessary for conventional issues!)
+        self.W = eigen_vectors[:, :K].T
+
+    def transform(self, X):
+        """
+        This function transform the passed designed matrix into the new subspace
+        :param X: design matrix
+        :return: ndarray, the trasformed data of dimension K, where K
+        """
+        # center my data
+        X_mean = X.mean(axis=0)
+        X -= X_mean
+
+        # due to numerical errors we might have imaginary parts!!
+        self.projections = np.real(self.W @ X.T)
+        return self.projections
+
+    def reconstruct_images_vectors(self):
+        """
+        This function reconstruct images from the projection onto the principal components.
+        :return: ndarray, the reconstructions
+        """
+        if self.projections is None:
+            raise ValueError("Train the PCA first!")
+
+        self.reconstructions = self.projections.T @ self.W
+
+        return self.reconstructions

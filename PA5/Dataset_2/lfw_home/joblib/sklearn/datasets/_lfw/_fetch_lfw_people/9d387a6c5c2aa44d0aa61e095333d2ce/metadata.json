@@ -1,1 +1,1 @@
-{"duration": 12.059021234512329, "input_args": {"data_folder_path": "'./Dataset_2/lfw_home\\\\lfw_funneled'", "slice_": "(slice(70, 195, None), slice(78, 172, None))", "color": "False", "resize": "0.5", "min_faces_per_person": "30"}}
+{"duration": 17.198901891708374, "input_args": {"data_folder_path": "'./Dataset_2/lfw_home\\\\lfw_funneled'", "slice_": "(slice(70, 195, None), slice(78, 172, None))", "color": "False", "resize": "0.5", "min_faces_per_person": "30"}}
