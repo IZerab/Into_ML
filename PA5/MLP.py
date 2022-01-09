@@ -6,6 +6,8 @@ from matplotlib import pyplot as plt
 from sklearn import metrics
 from sklearn import preprocessing
 from tqdm import tqdm
+import h5py
+import time
 
 from _stochastic_optimizers import AdamOptimizer
 
@@ -99,7 +101,7 @@ class MyMLP:
         self.lr = 1e-3  # learning rate
         self.alpha = 1e-5  # weight decay
 
-        ## caches for post activations and derivatives of activation functions
+        # caches for post activations and derivatives of activation functions
         self.cache_post_activations = []
         self.cache_derivatives = []
 
@@ -132,9 +134,11 @@ class MyMLP:
         mse_test : numpy array, optional
             mse on test data over training epochs
         """
+        # initialize weights
+        self.weights = []
+        self.biases = []
         for i in range(len(self.hidden_layer_sizes)):
             if i == 0:
-                # set the dimension equal to the number of columns of the design matrix
                 dim1 = x.shape[1]
             else:
                 dim1 = self.hidden_layer_sizes[i - 1]
@@ -145,17 +149,13 @@ class MyMLP:
                 raise ValueError("No initialization for layer with activation %s" % self.activations[i])
             b = np.zeros(dim2)
 
-            # save the weights!
             self.weights.append(W)
             self.biases.append(b)
 
-            # initialize optimizer
-            self._optimizer = AdamOptimizer(
-                params=self.weights + self.biases,
-                learning_rate_init=self.lr,
-                beta_1=0.9,
-                beta_2=0.999,
-                epsilon=1e-08)
+        # initialize optimizer
+        self._optimizer = AdamOptimizer(
+            self.weights + self.biases, self.lr, 0.9, 0.999,
+            1e-08)
 
         # optimize weights and biases
         mse_train = []
@@ -177,31 +177,21 @@ class MyMLP:
                 # compute gradients
                 gradients, gradients_biases = self.grad(x[perm], y[perm], method=method)
 
-
                 # weight decay
                 for w, g in zip(self.weights, gradients):
                     g += self.lr * self.alpha * 2 * w
 
                 # update parameters
-                updates = self._optimizer._get_updates(gradients + gradients_biases)
+                self._optimizer.update_params(self.weights + self.biases, gradients + gradients_biases)
 
-                # get the updates
-                for j in range(len(updates)):
-                    self.weights[j] = updates[j]
-                    self.biases = updates[j]
                 # move to next batch of data
                 sidx += bs
-                #if sidx >= x.shape[0]:
-                #    sidx = 0
-                #    break
+                if sidx >= x.shape[0]:
+                    sidx = 0
+                    break
 
             # record training/test performance for plotting
             mse_train.append(self.mean_squared_error(x_train, y_train))
-
-            # Visualize the results!
-            if epoch % 250 == 0:
-                print("The train loss at the iteration {} is {}".format(epoch, mse_train[epoch]))
-
             if x_test is not None:
                 mse_test.append(self.mean_squared_error(x_test, y_test))
 
@@ -238,7 +228,7 @@ class MyMLP:
                     _fg[i, j] = (f1 - f2) / (2 * eps)
             fg.append(_fg)
 
-        ## finite difference gradients of biases
+        # finite difference gradients of biases
         fg2 = []
         for b in self.biases:
             _b = np.copy(b)
@@ -264,29 +254,45 @@ class MyMLP:
         """
         # storage
         grad = []
-        grad_biases = []
+        grad_bias = []
+        delta = None
 
-        # we use the errors already stored in the cache! and we transpose errors
-        errors = np.transpose(self.cache_derivatives)
+        # save the number of layers for readability
+        num_layers = len(self.hidden_layer_sizes)
 
-        # storage
-        back_gradients = []
-        # create the backpropagation's gradient
-        for i in range(len(self.cache_post_activations)):
-            if i != 0:
-                back_gradients[i] = errors[i] @ self.cache_post_activations[i - 1]
+        # Compute the error done by the net, for the output layer use the MSE, for the internal backpropagate
+        for i in np.flip(range(num_layers)):
+
+            if i == num_layers - 1:
+                # this is the output layer
+                _, delta = self.mean_squared_error(x, y, cache=True, gradient=True)
+
             else:
-                back_gradients = errors[i] @ x
-            # save the result in the corresponding variable (the bias of the NN is the last element!)
-            if i == len(self.cache_post_activations):
-                grad_biases.append(back_gradients[i])
-            else:
-                grad.append(back_gradients[i])
+                # those are the hidden layers
+                delta = self.cache_derivatives[i].T * np.dot(delta, self.weights[i + 1]) delta @ self.weights[i + 1]
+
+            # compute the gradient
+            grad.append(np.dot(delta.T, self.cache_post_activations[i]))
+
+            # append the bias
+            grad_bias.append(np.array(delta.sum(axis=0)))
+
+        # since I did all the computation backward, I need to revese the indices!
+        grad = reversed(grad)
+        grad_bias = reversed(grad_bias)
+
+        # cast to list
+        grad = list(grad)
+        grad_bias = list(grad_bias)
 
         # clear the cache!
         self.cache_post_activations = []
         self.cache_derivatives = []
-        return grad, grad_biases
+
+        print(grad[0].shape)
+
+        # return grad, grad_biases
+        return grad, grad_bias
 
     def mean_squared_error(self, x, y, cache=False, gradient=False):
         """Mean squared error loss function.
@@ -353,12 +359,10 @@ class MyMLP:
 
 
 if __name__ == "__main__":
-    ## Fix randonmness
+    # Fix randonmness
     np.random.seed(1235)
 
-    ## Load data
-    import h5py
-
+    # Load data
     hf = h5py.File('regression.h5', 'r')
     x_train = np.array(hf.get('x_train'))
     y_train = np.array(hf.get('y_train'))
@@ -366,18 +370,17 @@ if __name__ == "__main__":
     y_test = np.array(hf.get('y_test'))
     hf.close()
 
-    ## normalize data
+    # normalize data
     scaler = preprocessing.StandardScaler()
     scaler.fit(x_train)
     x_train = scaler.transform(x_train)
     x_test = scaler.transform(x_test)
 
-    ## train MLP
-    import time
+    # train MLP
 
     start = time.time()
     clf = MyMLP(hidden_layer_sizes=(10, 10,), activations=[relu, relu])
-    mse_train, mse_test = clf.fit(x_train, y_train, x_test=x_test, y_test=y_test, n_epochs=100, method='backprop')
+    mse_train, mse_test = clf.fit(x_train, y_train, x_test=x_test, y_test=y_test, n_epochs=500, method='backprop')
     end = time.time()
 
     # report training time
@@ -390,6 +393,7 @@ if __name__ == "__main__":
     plt.ylabel('mse')
     plt.legend()
     plt.savefig('learning-curves.pdf', bbox_inches='tight')
+    plt.show()
 
     ## evaluate MLP
     y_pred = clf.predict(x_train)

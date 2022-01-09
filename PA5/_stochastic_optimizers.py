@@ -270,6 +270,7 @@ class AdamOptimizer(BaseOptimizer):
             The values to add to params
         """
         self.t += 1
+        print(self.ms[0])
         self.ms = [
             self.beta_1 * m + (1 - self.beta_1) * grad
             for m, grad in zip(self.ms, grads)
