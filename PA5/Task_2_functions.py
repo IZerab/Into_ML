@@ -118,7 +118,7 @@ def plot_gallery(images, num=None, shape=None):
     :param images: list of images to plot
     """
     # plot images of 10 different people
-    plt.figure(figsize=(10, 12))
+    plt.figure(figsize=(10, 12))    # nice dimension for the Jupyter Notebook
 
     if num is None:
         K = len(images)
@@ -217,8 +217,7 @@ def encode(X, mlp):
     This function is not working for general MLPs,
     the MLP must have the layer-configuration as
     stated in the exercise description.
-    X must have the shape
-    n_images x (witdh in pixels * height in pixels)
+    X must have the shape n_images x (witdh in pixels * height in pixels)
     """
 
     z = X
@@ -228,18 +227,17 @@ def encode(X, mlp):
     return z
 
 
-def decode(Z, mlp):
+def decode(z, mlp):
     """
     This function is not working for general MLPs,
     the MLP must have the layer-configuration as
     stated in the exercise description.
-    Z must have the shape n_images x d
+    z must have the shape n_images x d
     """
-
-    z = Z
     for i in range(len(mlp.coefs_) // 2, len(mlp.coefs_)):
         z = z @ mlp.coefs_[i] + mlp.intercepts_[i]
-    # z = np.maximum(z, 0)
+        if i < len(mlp.coefs_) - 1:
+            z = np.maximum(z, 0)
     return z
 
 
@@ -264,7 +262,7 @@ def custom_autoencoder_analysis(hidden_layer_sizes, X, X_train, X_test, y_train,
             nn = pickle.load(f)
     else:
         # initialize my nn
-        nn = MLPRegressor(hidden_layer_sizes=hidden_layer_sizes, max_iter=2000)
+        nn = MLPRegressor(hidden_layer_sizes=hidden_layer_sizes, max_iter=5000, random_state=42)
 
         # fit my nn with all the data that I have at my disposal (both train and test)
         nn.fit(X, X)
@@ -275,9 +273,14 @@ def custom_autoencoder_analysis(hidden_layer_sizes, X, X_train, X_test, y_train,
 
     # try my functions!
     Z_projected = encode(X=X, mlp=nn)
-    Z_reconstructed = decode(Z=Z_projected, mlp=nn)
+    Z_reconstructed = decode(z=Z_projected, mlp=nn)
 
-    plot_gallery(Z_reconstructed.T, 10)
+    # create a list suitable for my plot_gallery function (I append each rows in a list)
+    list_Z = []
+    for j in range(len(Z_reconstructed[0])):
+        list_Z.append([Z_reconstructed.loc[j, :]])
+
+    plot_gallery(list_Z, 10)
 
     # initialize the scaler
     my_scaler = MinMaxScaler()

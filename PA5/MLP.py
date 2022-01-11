@@ -1,5 +1,6 @@
 # This is the core implementation done by professor Sebastian Tschiatschek @ UNIVIE
-# This file contains a useful
+# This file contains some useful functions
+
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -23,7 +24,7 @@ def square(t, gradient=False):
     if not gradient:
         return activation
     else:
-        return activation, [ent * 2 for ent in t]
+        return activation, 2 * t
 
 
 def relu(t, gradient=False):
@@ -191,7 +192,7 @@ class MyMLP:
                     break
 
             # record training/test performance for plotting
-            mse_train.append(self.mean_squared_error(x_train, y_train))
+            mse_train.append(self.mean_squared_error(x, y))
             if x_test is not None:
                 mse_test.append(self.mean_squared_error(x_test, y_test))
 
@@ -265,11 +266,12 @@ class MyMLP:
 
             if i == num_layers - 1:
                 # this is the output layer
+                #self.cache_post_activations.append(x)
                 _, delta = self.mean_squared_error(x, y, cache=True, gradient=True)
 
             else:
                 # those are the hidden layers
-                delta = self.cache_derivatives[i].T * np.dot(delta, self.weights[i + 1]) delta @ self.weights[i + 1]
+                delta = self.cache_derivatives[i].T * np.dot(self.weights[i + 1], delta)
 
             # compute the gradient
             grad.append(np.dot(delta.T, self.cache_post_activations[i]))
@@ -289,9 +291,6 @@ class MyMLP:
         self.cache_post_activations = []
         self.cache_derivatives = []
 
-        print(grad[0].shape)
-
-        # return grad, grad_biases
         return grad, grad_bias
 
     def mean_squared_error(self, x, y, cache=False, gradient=False):
@@ -379,8 +378,8 @@ if __name__ == "__main__":
     # train MLP
 
     start = time.time()
-    clf = MyMLP(hidden_layer_sizes=(10, 10,), activations=[relu, relu])
-    mse_train, mse_test = clf.fit(x_train, y_train, x_test=x_test, y_test=y_test, n_epochs=500, method='backprop')
+    clf = MyMLP(hidden_layer_sizes=(20, 20), activations=[relu, relu])
+    mse_train, mse_test = clf.fit(x_train, y_train, x_test=x_test, y_test=y_test, n_epochs=2000, method='backprop')
     end = time.time()
 
     # report training time
