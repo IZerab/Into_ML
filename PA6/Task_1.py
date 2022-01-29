@@ -12,34 +12,33 @@ def linear_kernel(a, b, parameter):
     return np.dot(a, np.transpose(b))
 
 
-def gaussian_kernel(X, sigma):
+def gaussian_kernel(X_train, X, hyperpar):
     """
     Compute the kernel matrix
     :param X: design matrix
-    :param sigma: normalization factor in the RBF function
+    :param hyperpar: normalization factor in the RBF function
     :return: the kernel matrix
     """
     # get the norm of each element of X
-    X_norm = np.sum(X ** 2, axis= -1)
+    X_norm = np.sum(X ** 2, axis=-1)
+    X_train_norm = np.sum(X_train ** 2, axis=-1)
 
     # get the kernel (decompose the norm in simpler operations!
-    K = np.exp(- (X_norm[:, None] + X_norm[None, :] - 2 * np.dot(X, X.T)) / (2 * sigma ** 2))
+    sum_norms = X_norm[:, np.newaxis] + X_train_norm[np.newaxis, :]
+    K = np.exp((- sum_norms - 2 * np.dot(X, X_train.T)) / (2 * hyperpar ** 2))
     return K
 
 
-def custom_gaussian_kernel(X, hyperpar):
+def custom_gaussian_kernel(X_train, X, hyperpar):
     """
     Compute the kernel matrix based on a modified RBF kernel
     :param X: design matrix
     :param hyperpar: tuple, normalization factor in the RBF function and a multiplicative factor
     :return: the kernel matrix
     """
-    # get the norm of each element of X
-    X_norm = np.sum(X ** 2, axis=-1)
-
-    # get the kernel (decompose the norm in simpler operations!
-    K = hyperpar[1] * np.exp(- (X_norm[:, None] + X_norm[None, :] - 2 * np.dot(X, X.T)) / (2 * hyperpar[0] ** 2))
-    return K
+    K1 = gaussian_kernel(X_train[:, :2], X[:, :2], hyperpar[0])
+    K2 = hyperpar[2] * gaussian_kernel(X_train[:, 2:], X[:, 2:], hyperpar[1])
+    return K1 + K2
 
 
 def sigmoid(z):
@@ -97,6 +96,7 @@ class custom_log_reg:
         # class variables
         self.alphas = None
         self.K = None
+        self.X_train = None
 
         if kernel == "linear":
             self.kernel = linear_kernel
@@ -115,9 +115,9 @@ class custom_log_reg:
             if hyper_kernel:
                 self.kern_param = hyper_kernel
             else:
-                self.kern_param = (0.1, 0.1)
+                self.kern_param = (0.1, 0.1, 1)
 
-    def fit(self, X, y, lr=0.001, max_steps=100, Lambda=1, verbose=False):
+    def fit(self, X, y, lr=0.001, max_steps=100, Lambda=1, verbose=False, epsilon=0.001):
         """
         This fuction fits the model to the training data.
         :param max_steps: max number of iterations for the GD
@@ -137,19 +137,27 @@ class custom_log_reg:
 
         m = X.shape[0]
         # Construct kernel matrix
-        self.K = self.kernel(X, self.kern_param)
+        self.K = self.kernel(X, X, self.kern_param)
+        self.X_train = X
 
         # Gradient descent
         self.alphas = np.zeros([m])
-        costs = []
+        costs = [0]
 
-        if verbose:
-            for j in range(max_steps):
-                current_lr = lr / (j+1)
-                self.alphas -= log_reg_gradient(self.K, y, self.alphas, Lambda=Lambda) * current_lr
-                costs.append(log_reg_cost(self.K, y, self.alphas, Lambda=Lambda))
-                if j % 200 == 0:
-                    print("The cost at the iteration {} is {}".format(j, costs[j]))
+        for j in range(max_steps):
+            if j > 500:
+                current_lr = lr / j * 100
+            else:
+                current_lr = lr
+            self.alphas -= log_reg_gradient(self.K, y, self.alphas, Lambda=Lambda) * current_lr
+            costs.append(log_reg_cost(self.K, y, self.alphas, Lambda=Lambda))
+
+            # stop condition
+            if costs[j] - costs[j-1] < epsilon:
+                return costs
+
+            if (j % 200 == 0) and verbose:
+                print("The cost at the iteration {} is {}".format(j, costs[j]))
 
         return costs
 
@@ -163,7 +171,8 @@ class custom_log_reg:
         if isinstance(X, pd.DataFrame):
             X = X.copy().to_numpy()
 
-        return sigmoid(np.dot(self.alphas, self.kernel(X, self.kern_param)))
+        return sigmoid(np.dot(self.alphas, self.kernel(X_train=self.X_train, X=X, hyperpar=self.kern_param)))
+
 
     def predict(self, X, threshold=0.5):
         """
@@ -183,6 +192,5 @@ class custom_log_reg:
                 result.append(0)
             else:
                 result.append(1)
-
         return result
 
