@@ -12,12 +12,12 @@ def linear_kernel(a, b, parameter):
 def gaussian_kernel(X, X2, kern_param):
     """
     Compute the kernel matrix
-    :param X: design matrix
-    :param hyperpar: normalization factor in the RBF function
+    :param kern_param: hyperparameter of the kernel
+    :param X: train design matrix
+    :param X2: design matrix
     :return: the kernel matrix
     """
     sigma = kern_param
-
     norm = np.square(np.linalg.norm(X[None, :, :] - X2[:, None, :], axis=2).T)
     return np.exp(-norm / (2 * np.square(sigma)))
 
@@ -25,6 +25,7 @@ def gaussian_kernel(X, X2, kern_param):
 def custom_gaussian_kernel(X_train, X, hyperpar):
     """
     Compute the kernel matrix based on a modified RBF kernel
+    :param X_train: train design matrix
     :param X: design matrix
     :param hyperpar: tuple, normalization factor in the RBF function and a multiplicative factor
     :return: the kernel matrix
@@ -47,15 +48,16 @@ def log_reg_cost(K, y, alphas, Lambda):
     """
     Cost of the logistic regression
     :param Lambda: regularization parameter
-    :param alphas: weight vector for the dual problem
+    :param alphas: weight vector for regularized problem
     :param K: kernel matrix
     :param y: target vector
     :return: the value of the cost function
     """
     arg = np.log(1 + np.exp(np.dot(alphas, K)))
     first = np.sum(arg)
+
     second = -np.dot(y, np.dot(alphas, K))
-    # regulariser
+
     reg = Lambda * alphas.T @ K @ alphas
 
     return first + second + reg
