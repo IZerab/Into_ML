@@ -116,14 +116,14 @@ class custom_log_reg:
             max_rate=100, min_rate=0.001):
         """
         This fuction fits the model to the training data.
+        :param min_rate: minimum rate of the learning rate
+        :param max_rate: max estension of the learning rate
+        :param epsilon: accuracy desired
+        :param gd_step: reduction factor
         :param max_steps: max number of iterations for the GD
-        :param lr: learning rate, a float
         :param Lambda: regularization parameter
-        :param verbose: bool, wether or not print the descent of the cost
         :param X: design matrix
         :param y: target vector
-
-        :return:
         """
         # check if the input is a df or not and in case cast it to array
         if isinstance(X, pd.DataFrame):
@@ -131,6 +131,7 @@ class custom_log_reg:
         if isinstance(y, pd.Series):
             y = y.copy().to_numpy()
 
+        # number of instances
         m = len(X)
         # Save the train in the class
         self.X_train = np.vstack([X.T, np.ones(m)]).T
@@ -235,6 +236,7 @@ def decision_chimney_kids(X,log_kids, log_chimneys, cost_vector):
     This function computer the bayesian best decision for Santa. The logistic repressors must have a predict_prob
     module.
     :param log_kids: logistic regressor trained to get if there are kids in the house
+    :param X:
     :param log_chimneys: logistic regressor trained to get if there are chimneys in the house
     :param cost_vector: cost of any possible combination, see the PA6 sheet for explaination
     :return: the optimal bayesian decisions costs and the list of the action performed
