@@ -2,9 +2,6 @@
 
 # import standard libs
 import numpy as np
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.stats import multivariate_normal
 import pandas as pd
 
 
@@ -12,21 +9,17 @@ def linear_kernel(a, b, parameter):
     return np.dot(a, np.transpose(b))
 
 
-def gaussian_kernel(X_train, X, hyperpar):
+def gaussian_kernel(X, X2, kern_param):
     """
     Compute the kernel matrix
     :param X: design matrix
     :param hyperpar: normalization factor in the RBF function
     :return: the kernel matrix
     """
-    # get the norm of each element of X
-    X_norm = np.sum(X ** 2, axis=-1)
-    X_train_norm = np.sum(X_train ** 2, axis=-1)
+    sigma = kern_param
 
-    # get the kernel (decompose the norm in simpler operations!
-    sum_norms = X_norm[:, np.newaxis] + X_train_norm[np.newaxis, :]
-    K = np.exp((- sum_norms - 2 * np.dot(X, X_train.T)) / (2 * hyperpar ** 2))
-    return K
+    norm = np.square(np.linalg.norm(X[None, :, :] - X2[:, None, :], axis=2).T)
+    return np.exp(-norm / (2 * np.square(sigma)))
 
 
 def custom_gaussian_kernel(X_train, X, hyperpar):
@@ -117,7 +110,8 @@ class custom_log_reg:
             else:
                 self.kern_param = (0.1, 0.1, 1)
 
-    def fit(self, X, y, lr=0.001, max_steps=100, Lambda=1, verbose=False, epsilon=0.001):
+    def fit(self, X, y, gd_step=10, max_steps=100, Lambda=1, epsilon=0.0001,
+            max_rate=100, min_rate=0.001):
         """
         This fuction fits the model to the training data.
         :param max_steps: max number of iterations for the GD
@@ -135,31 +129,36 @@ class custom_log_reg:
         if isinstance(y, pd.Series):
             y = y.copy().to_numpy()
 
-        m = X.shape[0]
+        m = len(X)
+        # Save the train in the class
+        self.X_train = np.vstack([X.T, np.ones(m)]).T
+
         # Construct kernel matrix
-        self.K = self.kernel(X, X, self.kern_param)
-        self.X_train = X
+        K = self.kernel(X, X, self.kern_param)
 
         # Gradient descent
         self.alphas = np.zeros([m])
-        costs = [0]
+        prev_cost = 0
+        next_cost = log_reg_cost(K, y, self.alphas, Lambda)
+        counter = 0
+        cost = 0
 
-        for j in range(max_steps):
-            if j > 500:
-                current_lr = lr / j * 100
-            else:
-                current_lr = lr
-            self.alphas -= log_reg_gradient(self.K, y, self.alphas, Lambda=Lambda) * current_lr
-            costs.append(log_reg_cost(self.K, y, self.alphas, Lambda=Lambda))
-
-            # stop condition
-            if costs[j] - costs[j-1] < epsilon:
-                return costs
-
-            if (j % 200 == 0) and verbose:
-                print("The cost at the iteration {} is {}".format(j, costs[j]))
-
-        return costs
+        while np.fabs(prev_cost - next_cost) > epsilon:
+            neg_grad = - log_reg_gradient(K, y, self.alphas, Lambda)
+            best_rate = rate = max_rate
+            min_cost = log_reg_cost(K, y, self.alphas, Lambda)
+            while rate >= min_rate:
+                cost = log_reg_cost(K, y, self.alphas + neg_grad * rate, Lambda)
+                if cost < min_cost:
+                    min_cost = cost
+                    best_rate = rate
+                rate /= gd_step
+            self.alphas += neg_grad * best_rate
+            prev_cost = next_cost
+            next_cost = min_cost
+            counter += 1
+            if counter > max_steps:
+                return cost
 
     def predict_prob(self, X):
         """
@@ -171,8 +170,9 @@ class custom_log_reg:
         if isinstance(X, pd.DataFrame):
             X = X.copy().to_numpy()
 
-        return sigmoid(np.dot(self.alphas, self.kernel(X_train=self.X_train, X=X, hyperpar=self.kern_param)))
-
+        X = np.vstack([np.transpose(X), np.ones([len(X)])]).T
+        K = self.kernel(self.X_train, X, self.kern_param)
+        return sigmoid(np.dot(self.alphas, K))
 
     def predict(self, X, threshold=0.5):
         """
@@ -193,4 +193,81 @@ class custom_log_reg:
             else:
                 result.append(1)
         return result
+
+    def decide_chimney(self, X, cost_matrix):
+        """
+        This function decides which is the best bayesian choice for each entry of the design matrix.
+        In thi specific case the cost matrix must be 2 x 2!!
+        :param X: design matrix
+        :param cost_matrix: matrix (n x n) contining the costs for each action
+        :return: the optimal bayesian decisions costs and the list of the action performed
+        """
+        # get the probabilities
+        Z = self.predict_prob(X)
+
+        cost_delivery = []
+        cost_not_delivery = []
+        decisions = []
+        decisions_costs = []
+
+        for i in range(len(Z)):
+            # expected cost for the delivery
+            cost_delivery.append(cost_matrix[0, 0] * Z[i] + cost_matrix[0, 1] * (1- Z[i]))
+
+            # expected cost for not delivering
+            cost_not_delivery.append(cost_matrix[1, 0] * Z[i] + cost_matrix[1, 1] * (1- Z[i]))
+
+            # decide which is the minimum cost
+            if cost_delivery[i] < cost_not_delivery[i]:
+                decisions_costs.append(cost_delivery[i])
+                decisions.append("Delivery")
+            else:
+                decisions_costs.append(cost_not_delivery[i])
+                decisions.append("Do not delivery")
+
+        return decisions_costs, decisions
+
+
+def decision_chimney_kids(X,log_kids, log_chimneys, cost_vector):
+    """
+    This function computer the bayesian best decision for Santa. The logistic repressors must have a predict_prob
+    module.
+    :param log_kids: logistic regressor trained to get if there are kids in the house
+    :param log_chimneys: logistic regressor trained to get if there are chimneys in the house
+    :param cost_vector: cost of any possible combination, see the PA6 sheet for explaination
+    :return: the optimal bayesian decisions costs and the list of the action performed
+    """
+    decisions = []
+    decisions_costs = []
+
+    # prediction whether a house has kids or not
+    Z_k = log_kids.predict_prob(X)
+    # prediction whether the house has a chimney or not
+    Z_c = log_chimneys.predict_prob(X)
+
+    for i in range(len(X)):
+        # expected costs for the delivery
+        delivery0 = cost_vector[0] * Z_c[i] * Z_k[i]
+        delivery1 = cost_vector[1] * Z_c[i] * (1 - Z_k[i])
+        delivery2 = cost_vector[2] * (1- Z_c[i]) * Z_k[i]
+        delivery3 = cost_vector[3] * (1- Z_c[i]) * (1 - Z_k[i])
+        cost_delivery = delivery0 + delivery1 + delivery2 + delivery3
+
+        # expected costs not to deliver
+        not_delivery0 = cost_vector[4] * Z_c[i] * Z_k[i]
+        not_delivery1 = cost_vector[5] * Z_c[i] * (1 - Z_k[i])
+        not_delivery2 = cost_vector[6] * (1 - Z_c[i]) * Z_k[i]
+        not_delivery3 = cost_vector[7] * (1 - Z_c[i]) * (1 - Z_k[i])
+        cost_not_delivery = not_delivery0 + not_delivery1 + not_delivery2 + not_delivery3
+
+        # decide which is the minimum cost
+        if cost_delivery < cost_not_delivery:
+            decisions_costs.append(cost_delivery)
+            decisions.append("Delivery")
+        else:
+            decisions_costs.append(cost_not_delivery)
+            decisions.append("Do not delivery")
+
+    return decisions_costs, decisions
+
 

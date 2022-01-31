@@ -12,19 +12,19 @@ class LogisticRegression:
 
     def __init__(self, kernel='poly', kern_param=None):
         if kernel == 'poly':
-            self.kernel = self.__linear__
+            self.kernel = __linear__
             if kern_param:
                 self.kern_param = kern_param
             else:
                 self.kern_param = 1
         elif kernel == 'gaussian':
-            self.kernel = self.__gaussian__
+            self.kernel = __gaussian__
             if kern_param:
                 self.kern_param = kern_param
             else:
                 self.kern_param = 0.1
         elif kernel == 'laplace':
-            self.kernel = self.__laplace__
+            self.kernel = __laplace__
             if kern_param:
                 self.kern_param = kern_param
             else:
@@ -58,25 +58,6 @@ class LogisticRegression:
         return self.__sigmoid__(np.dot(self.a, self.kernel(self.X, X, self.kern_param)))
 
     # Kernels
-    @staticmethod
-    def __linear__(a, b, parameter):
-        return np.dot(a, np.transpose(b))
-
-    @staticmethod
-    def __gaussian__(a, b, kern_param):
-        mat = np.zeros([len(a), len(b)])
-        for i in range(0, len(a)):
-            for j in range(0, len(b)):
-                mat[i][j] = np.exp(-np.sum(np.square(np.subtract(a[i], b[j]))) / (2 * kern_param * kern_param))
-        return mat
-
-    @staticmethod
-    def __laplace__(a, b, kern_param):
-        mat = np.zeros([len(a), len(b)])
-        for i in range(0, len(a)):
-            for j in range(0, len(b)):
-                mat[i][j] = np.exp(-np.linalg.norm(np.subtract(a[i], b[j])) / kern_param)
-        return mat
 
     @staticmethod
     def __sigmoid__(X):
@@ -113,5 +94,25 @@ class LogisticRegression:
                 result.append(1)
 
         return result
+
+
+def __laplace__(a, b, kern_param):
+    mat = np.zeros([len(a), len(b)])
+    for i in range(0, len(a)):
+        for j in range(0, len(b)):
+            mat[i][j] = np.exp(-np.linalg.norm(np.subtract(a[i], b[j])) / kern_param)
+    return mat
+
+
+def __gaussian__(a, b, kern_param):
+    mat = np.zeros([len(a), len(b)])
+    for i in range(0, len(a)):
+        for j in range(0, len(b)):
+            mat[i][j] = np.exp(-np.sum(np.square(np.subtract(a[i], b[j]))) / (2 * kern_param * kern_param))
+    return mat
+
+
+def __linear__(a, b, parameter):
+    return np.dot(a, np.transpose(b))
 
 
